@@ -3,6 +3,21 @@
 All notable changes to the **Annotate PDF** plugin are documented here.
 This project uses semantic versioning; release tags are `annotate-pdf-v<version>`.
 
+## [1.0.3] — 2026-11-19
+
+### Fixed
+- **`this._worker is null` on the first write after starting Zotero.** Zotero
+  creates its PDF worker lazily, only from `_enqueue()`/`_processQueue()`; the
+  pre-write check that reads the file's embedded annotations calls the worker
+  directly, so it failed when no PDF operation had run yet. The worker is now
+  initialized first, with a public-API fallback for future Zotero versions.
+  (Failed attempts changed nothing: the error happened before any write.)
+- **Menu icon invisible.** Zotero picks `--custom-menu-icon-light/dark` from the
+  color-scheme preference, while popup menus are drawn with the platform's
+  (light) menu colors — so a theme-adaptive monochrome icon could end up with
+  white-on-white contrast. The PNG icons now carry their own colors (accent-blue
+  page with yellow highlight bars) and are visible on light and dark menus alike.
+
 ## [1.0.2] — 2026-11-19
 
 ### Fixed

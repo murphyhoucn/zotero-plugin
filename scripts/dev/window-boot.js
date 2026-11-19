@@ -60,6 +60,15 @@
 	}
 
 	const timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+	// Timers created from JS must stay referenced until they fire, otherwise the
+	// GC may collect the wrapper and silently cancel the timer, which would stop
+	// the channel after a while. Park the reference on the main window.
+	try {
+		Zotero.getMainWindow().__annotatePdfBootTimer = timer;
+	}
+	catch (e) {
+		// Ignore
+	}
 	timer.initWithCallback(tick, 1500, Ci.nsITimer.TYPE_REPEATING_SLACK);
 
 	write(MARKER, "started " + new Date().toISOString());

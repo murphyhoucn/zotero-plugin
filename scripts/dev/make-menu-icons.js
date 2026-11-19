@@ -138,9 +138,17 @@ const BAR1 = [[9.2, 14.8], [22.8, 14.8], [22.8, 18], [9.2, 18]];
 const BAR2 = [[9.2, 20.6], [18.4, 20.6], [18.4, 23.6], [9.2, 23.6]];
 const YELLOW = [255, 212, 0];
 
+/*
+ * The icons carry their own colours instead of adapting to the menu: Zotero
+ * resolves `--custom-menu-icon-light/dark` from the *color scheme* preference
+ * while the popup itself is drawn with the platform's (light) menu colours, so
+ * a theme-adaptive monochrome icon can end up invisible. A coloured icon is
+ * visible on both light and dark menus (like the PNG favicons other plugins
+ * use), so both variants only differ slightly for contrast.
+ */
 function makeIcon(pageColor) {
 	const canvas = new Uint8Array(W * H * 4);
-	fillPoly(canvas, PAGE, pageColor, 240);
+	fillPoly(canvas, PAGE, pageColor, 255);
 	fillPoly(canvas, BAR1, YELLOW, 255);
 	fillPoly(canvas, BAR2, YELLOW, 255);
 	return encodePng(downsample(canvas), SIZE, SIZE);
@@ -148,8 +156,8 @@ function makeIcon(pageColor) {
 
 const outDir = path.join(__dirname, "..", "..", "plugins", "annotate-pdf", "chrome", "content", "icons");
 const files = {
-	"menu-light.png": makeIcon([46, 58, 89]),      // dark slate page, for light menus
-	"menu-dark.png": makeIcon([232, 236, 245]),    // light page, for dark menus
+	"menu-light.png": makeIcon([64, 114, 229]),    // Zotero accent blue, for light menus
+	"menu-dark.png": makeIcon([122, 162, 255]),    // lighter blue, for dark menus
 };
 for (const [name, data] of Object.entries(files)) {
 	const p = path.join(outDir, name);

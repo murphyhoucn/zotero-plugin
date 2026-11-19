@@ -17,10 +17,20 @@
 	}
 	const T = PathUtils.tempDir;
 	const P = (n) => PathUtils.join(T, n);
-	const delay = (ms) => new Promise((resolve) => {
+	// Timers created from JS must stay referenced until they fire, otherwise the
+	// GC may collect the wrapper and silently cancel the timer (an easy way to
+	// make a test hang).
+	const pendingTimers = new Set();
+	const onceTimer = (ms, cb) => {
 		const timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-		timer.initWithCallback(resolve, ms, Ci.nsITimer.TYPE_ONE_SHOT);
-	});
+		pendingTimers.add(timer);
+		timer.initWithCallback(() => {
+			pendingTimers.delete(timer);
+			cb();
+		}, ms, Ci.nsITimer.TYPE_ONE_SHOT);
+		return timer;
+	};
+	const delay = (ms) => new Promise((resolve) => onceTimer(ms, resolve));
 
 	const steps = [];
 	const progressPath = PathUtils.join(PathUtils.tempDir, "ap-e2e-progress.txt");
@@ -107,8 +117,7 @@
 	const withTimeout = (promise, ms, label) => Promise.race([
 		promise,
 		new Promise((resolve, reject) => {
-			const t = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-			t.initWithCallback(() => reject(new Error(label + ": timed out after " + ms + " ms")), ms, Ci.nsITimer.TYPE_ONE_SHOT);
+			onceTimer(ms, () => reject(new Error(label + ": timed out after " + ms + " ms")));
 		}),
 	]);
 
@@ -375,16 +384,44 @@
 		/* ---- 5. overwrite mode ------------------------------------------ */
 		overwriteResult = await guard("overwrite-mode", () => A.writeForAttachment(attachment, "overwrite"));
 		await guard("overwrite-effects", async () => {
-			if (!overwriteResult || overwriteResult.status !== "ok") {
-				throw new Error("overwrite did not succeed: " + JSON.stringify(overwriteResult));
+			// Force backups on for this step (the user's preference may disable them)
+			const pref = "extensions.zotero.annotate-pdf.backupOnOverwrite";
+			const prev = Services.prefs.getBoolPref(pref, true);
+			Services.prefs.setBoolPref(pref, true);
+			try {
+				const result = await A.writeForAttachment(attachment, "overwrite");
+				if (!result || result.status !== "ok") {
+					throw new Error("overwrite did not succeed: " + JSON.stringify(result));
+				}
+				return {
+					status: result.status,
+					count: result.count,
+					strippedEmbedded: result.strippedEmbedded,
+					backupPath: result.backupPath,
+					backupExists: result.backupPath ? await IOUtils.exists(result.backupPath) : null,
+					dbAnnotationCount: A.annotationCount(attachment),
+					hasAnnotationsInFile: await Z.PDFWorker.hasAnnotations(attachment.id),
+				};
 			}
+			finally {
+				Services.prefs.setBoolPref(pref, prev);
+			}
+		});
+
+		/* ---- 5a. cold PDF worker still works ---------------------------- */
+		await guard("cold-worker-strip", async () => {
+			const srcPath = await attachment.getFilePathAsync();
+			// Simulate a cold worker (as right after a Zotero restart): calling the
+			// worker directly used to fail with "this._worker is null"
+			Zotero.PDFWorker._worker = null;
+			const embedded = await A.readEmbeddedAnnotations(srcPath, "", attachment.id);
+			const write = await A.writeForAttachment(attachment, "overwrite");
 			return {
-				status: overwriteResult.status,
-				count: overwriteResult.count,
-				backupPath: overwriteResult.backupPath,
-				backupExists: await IOUtils.exists(overwriteResult.backupPath),
-				dbAnnotationCount: A.annotationCount(attachment),
-				hasAnnotationsInFile: await Z.PDFWorker.hasAnnotations(attachment.id),
+				embeddedCount: embedded.length,
+				status: write.status,
+				strippedEmbedded: write.strippedEmbedded,
+				count: write.count,
+				workerAlive: !!Zotero.PDFWorker._worker,
 			};
 		});
 

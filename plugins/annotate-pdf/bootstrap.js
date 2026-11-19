@@ -112,6 +112,7 @@ var AnnotatePDF = {
 	readEmbeddedAnnotations,
 	stripPreviousEmbeddedAnnotations,
 	removeEmbeddedAnnotations,
+	ensurePDFWorker,
 	annotationCount,
 	annotatedBaseName,
 	uniqueFilePath,
@@ -776,6 +777,25 @@ async function writeForAttachment(attachment, mode) {
 }
 
 /**
+ * Make sure the PDF worker exists. `_query()` requires `this._worker`, but the
+ * worker is only created from `_init()`, which the public methods reach through
+ * `_enqueue()`/`_processQueue()` — calling `_query()` directly would otherwise
+ * fail with "this._worker is null".
+ *
+ * @param {Number} [itemID] - for the public-API fallback
+ */
+async function ensurePDFWorker(itemID) {
+	if (typeof Zotero.PDFWorker._init === "function") {
+		Zotero.PDFWorker._init();
+		return;
+	}
+	// Fallback: any public worker call initializes it as a side effect
+	if (typeof Zotero.PDFWorker.hasAnnotations === "function" && itemID) {
+		await Zotero.PDFWorker.hasAnnotations(itemID);
+	}
+}
+
+/**
  * Read the annotations currently embedded in a PDF file, using Zotero's PDF
  * worker (the same action behind "Import Annotations…", but without touching
  * the database). The worker's `_query` is internal API; callers must handle
@@ -783,12 +803,14 @@ async function writeForAttachment(attachment, mode) {
  *
  * @param {String} srcPath
  * @param {String} password
+ * @param {Number} [itemID]
  * @return {Promise<Object[]>} parsed annotations ({ id?, type, position, comment, ... })
  */
-async function readEmbeddedAnnotations(srcPath, password) {
+async function readEmbeddedAnnotations(srcPath, password, itemID) {
 	if (typeof Zotero.PDFWorker._query !== "function") {
 		throw new Error("Zotero.PDFWorker._query is not available in this Zotero version");
 	}
+	await ensurePDFWorker(itemID);
 	const buf = new Uint8Array(await IOUtils.read(srcPath)).buffer;
 	const result = await Zotero.PDFWorker._query(
 		"pdf.importAnnotations",
@@ -804,9 +826,14 @@ async function readEmbeddedAnnotations(srcPath, password) {
  *
  * @param {String} srcPath
  * @param {String} password
+ * @param {Number} [itemID]
  * @return {Promise<{stripped: Boolean, total: Number}>}
  */
-async function removeEmbeddedAnnotations(srcPath, password) {
+async function removeEmbeddedAnnotations(srcPath, password, itemID) {
+	if (typeof Zotero.PDFWorker._query !== "function") {
+		throw new Error("Zotero.PDFWorker._query is not available in this Zotero version");
+	}
+	await ensurePDFWorker(itemID);
 	const buf = new Uint8Array(await IOUtils.read(srcPath)).buffer;
 	const result = await Zotero.PDFWorker._query(
 		"pdf.importAnnotations",
@@ -838,7 +865,7 @@ async function removeEmbeddedAnnotations(srcPath, password) {
  * @return {Promise<{stripped: Boolean, embedded: Number}>}
  */
 async function stripPreviousEmbeddedAnnotations(attachment, srcPath, password) {
-	const embedded = await readEmbeddedAnnotations(srcPath, password);
+	const embedded = await readEmbeddedAnnotations(srcPath, password, attachment.id);
 	if (!embedded.length) {
 		return { stripped: false, embedded: 0 };
 	}
@@ -854,7 +881,7 @@ async function stripPreviousEmbeddedAnnotations(attachment, srcPath, password) {
 			count: foreign.length || embedded.length,
 		}));
 	}
-	const result = await removeEmbeddedAnnotations(srcPath, password);
+	const result = await removeEmbeddedAnnotations(srcPath, password, attachment.id);
 	return { stripped: result.stripped, embedded: embedded.length };
 }
 

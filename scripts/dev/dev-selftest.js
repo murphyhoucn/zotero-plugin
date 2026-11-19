@@ -35,9 +35,17 @@ let jobStartedAt = 0;
 let jobTimer = null;
 let pollTimer = null;
 
+// Timers created from JS must stay referenced until they fire, otherwise the
+// garbage collector may collect the wrapper and silently cancel the timer.
+const pendingTimers = new Set();
+
 function makeOnceTimer(ms, cb) {
 	const timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-	timer.initWithCallback(cb, ms, Ci.nsITimer.TYPE_ONE_SHOT);
+	pendingTimers.add(timer);
+	timer.initWithCallback(() => {
+		pendingTimers.delete(timer);
+		cb();
+	}, ms, Ci.nsITimer.TYPE_ONE_SHOT);
 	return timer;
 }
 
@@ -78,6 +86,7 @@ async function writeResult(result) {
 function finishJob(result) {
 	if (jobTimer) {
 		jobTimer.cancel();
+		pendingTimers.delete(jobTimer);
 		jobTimer = null;
 	}
 	activeJob = false;
@@ -107,9 +116,7 @@ async function poll() {
 	jobStartedAt = Date.now();
 	jobTimer = makeOnceTimer(JOB_TIMEOUT_MS, () => {
 		finishJob({ error: "job timed out after " + JOB_TIMEOUT_MS + " ms" });
-	});
-
-	const scope = {
+	});	const scope = {
 		AnnotatePDF,
 		Zotero,
 		Services,
@@ -147,6 +154,7 @@ async function poll() {
 }
 
 pollTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+pendingTimers.add(pollTimer);
 pollTimer.initWithCallback(() => {
 	poll().catch((e) => {
 		try {
