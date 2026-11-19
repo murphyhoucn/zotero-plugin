@@ -3,8 +3,8 @@
     "theme-toggle@local": {
       "updates": [
         {
-          "version": "1.1.1",
-          "update_link": "https://github.com/murphyhoucn/zotero-plugin/releases/download/theme-toggle-v1.1.1/theme-toggle.xpi",
+          "version": "1.1.2",
+          "update_link": "https://github.com/murphyhoucn/zotero-plugin/releases/download/theme-toggle-v1.1.2/theme-toggle.xpi",
           "applications": {
             "zotero": {
               "strict_min_version": "8.0",

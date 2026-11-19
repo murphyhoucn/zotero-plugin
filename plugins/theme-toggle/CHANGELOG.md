@@ -3,6 +3,13 @@
 All notable changes to the **Theme Toggle** plugin are documented here.
 This project uses semantic versioning; release tags are `theme-toggle-v<version>`.
 
+## [1.1.2] — 2026-11-19
+
+### Changed
+- **Tools menu item now shows the plugin logo** in front of its label
+  (`icon` / `darkIcon` on the `Zotero.MenuManager` registration), matching the
+  format of other plugins' menu entries.
+
 ## [1.1.1] — 2026-11-19
 
 ### Changed

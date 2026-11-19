@@ -52,6 +52,8 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
 				{
 					menuType: "menuitem",
 					l10nID: "theme-toggle-menu-label",
+					icon: `chrome://${ADDON_REF}/content/icons/logo.svg`,
+					darkIcon: `chrome://${ADDON_REF}/content/icons/logo.svg`,
 					onCommand: (event, context) => {
 						let win = context?.menuElem?.ownerGlobal
 							|| event?.target?.ownerGlobal

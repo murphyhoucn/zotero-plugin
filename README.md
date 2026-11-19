@@ -10,7 +10,7 @@ services, no telemetry.
 
 | Plugin | What it does | Version | Download |
 |---|---|---|---|
-| [Theme Toggle](plugins/theme-toggle) | Switch Zotero's native light/dark color scheme from a toolbar button, `Ctrl/Cmd+Shift+D`, or the Tools menu — instantly, no restart. | 1.1.1 | [theme-toggle.xpi](https://github.com/murphyhoucn/zotero-plugin/releases/download/theme-toggle-v1.1.1/theme-toggle.xpi) |
+| [Theme Toggle](plugins/theme-toggle) | Switch Zotero's native light/dark color scheme from a toolbar button, `Ctrl/Cmd+Shift+D`, or the Tools menu — instantly, no restart. | 1.1.2 | [theme-toggle.xpi](https://github.com/murphyhoucn/zotero-plugin/releases/download/theme-toggle-v1.1.2/theme-toggle.xpi) |
 
 ## Install a plugin
 

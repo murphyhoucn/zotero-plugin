@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Theme Toggle",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Toggle Zotero's native light/dark color scheme from a toolbar button, the Tools menu, or a keyboard shortcut (Ctrl/Cmd+Shift+D).",
   "author": "murphy",
   "homepage_url": "https://github.com/murphyhoucn/zotero-plugin",
