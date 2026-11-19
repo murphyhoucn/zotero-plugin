@@ -3,6 +3,15 @@
 All notable changes to the **Theme Toggle** plugin are documented here.
 This project uses semantic versioning; release tags are `theme-toggle-v<version>`.
 
+## [1.1.0] — 2026-11-19
+
+### Changed
+- **New plugin logo** — `chrome/content/icons/logo.svg`: a capsule (toggle) outline
+  containing a sun on the left, a slash in the middle, and a crescent moon on the
+  right. It is used as the add-on icon in the Plugins Manager and at the top of the
+  plugin README. The toolbar button keeps its monochrome sun/moon icons, which
+  indicate the action a click performs.
+
 ## [1.0.2] — 2026-11-19
 
 First public release.
