@@ -1,6 +1,6 @@
 # Theme Toggle
 
-<p align="center"><img src="chrome/content/icons/logo.svg" width="128" height="64" alt="Theme Toggle logo — a capsule with sun, slash and crescent moon"></p>
+<p align="center"><img src="chrome/content/icons/logo.svg" width="128" height="64" alt="Theme Toggle logo — a rounded square with a diagonal slash, sun upper-left and crescent moon lower-right"></p>
 
 A tiny Zotero plugin that switches Zotero's **native** light/dark color scheme from
 outside the Settings window. Tested with Zotero 10.0.8 (Zotero 8 series); works on
@@ -54,7 +54,7 @@ setting is left in whatever state it was in.
 manifest.json        plugin manifest (Zotero 8 requires applications.zotero.update_url)
 bootstrap.js         all plugin logic (startup/shutdown + window setup)
 chrome/content/icons
-                     logo.svg   — plugin icon (sun + crescent moon, used in Plugins Manager)
+                     logo.svg   — plugin icon (rounded square: sun / moon, used in Plugins Manager)
                      sun.svg    — toolbar icon: click to switch to light
                      moon.svg   — toolbar icon: click to switch to dark
 locale/              en-US, zh-CN FTL strings

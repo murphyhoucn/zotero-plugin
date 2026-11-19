@@ -1,25 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" role="img" aria-labelledby="title">
-  <title id="title">Sun / moon toggle</title>
-  <!-- capsule -->
-  <rect x="0.9" y="5.4" width="22.2" height="13.2" rx="6.6" fill="none" stroke="#7C879E" stroke-width="1.15"/>
-  <!-- sun: same glyph shape as the toolbar sun icon -->
-  <g transform="translate(5.6 12)">
-    <circle r="1.74" fill="#F6A623"/>
-    <g stroke="#F6A623" stroke-width="0.95" stroke-linecap="round" fill="none">
-      <path d="M0 -2.25V-3"/>
-      <path d="M0 2.25V3"/>
-      <path d="M-2.25 0H-3"/>
-      <path d="M2.25 0H3"/>
-      <path d="M-1.59 -1.59l-.53 -.53"/>
-      <path d="M1.59 1.59l.53 .53"/>
-      <path d="M-1.59 1.59l-.53 .53"/>
-      <path d="M1.59 -1.59l.53 -.53"/>
+  <title id="title">Sun / moon</title>
+  <!-- rounded square -->
+  <rect x="1.2" y="1.2" width="21.6" height="21.6" rx="5.6" fill="#2E3A59"/>
+  <!-- diagonal slash -->
+  <path d="M4.6 19.4 19.4 4.6" stroke="#E8ECF5" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- sun — upper left (same glyph shape as the toolbar sun icon) -->
+  <g transform="translate(7.3 7.3)">
+    <circle r="1.62" fill="#F6A623"/>
+    <g stroke="#F6A623" stroke-width="1" stroke-linecap="round" fill="none">
+      <path d="M0 -2.1V-2.8"/>
+      <path d="M0 2.1V2.8"/>
+      <path d="M-2.1 0H-2.8"/>
+      <path d="M2.1 0H2.8"/>
+      <path d="M-1.48 -1.48l-.5 -.5"/>
+      <path d="M1.48 1.48l.5 .5"/>
+      <path d="M-1.48 1.48l-.5 .5"/>
+      <path d="M1.48 -1.48l.5 -.5"/>
     </g>
   </g>
-  <!-- slash between sun and moon -->
-  <path d="M11.3 14.7 12.7 9.3" stroke="#7C879E" stroke-width="1.2" stroke-linecap="round"/>
-  <!-- moon: stock crescent glyph, upright and unmirrored, same box size as the sun -->
-  <g transform="translate(14.4 8) scale(0.3333)">
-    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" fill="#5B8DEF"/>
+  <!-- moon — lower right (stock crescent glyph, upright and unmirrored, same size as the sun) -->
+  <g transform="translate(12.967 12.967) scale(0.3111)">
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" fill="#8FB6FF"/>
   </g>
 </svg>

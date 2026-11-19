@@ -3,6 +3,14 @@
 All notable changes to the **Theme Toggle** plugin are documented here.
 This project uses semantic versioning; release tags are `theme-toggle-v<version>`.
 
+## [1.1.1] — 2026-11-19
+
+### Changed
+- **Logo redrawn** — `chrome/content/icons/logo.svg` is now a rounded square with a
+  diagonal `/` slash, the sun in the upper-left area and the crescent moon in the
+  lower-right area. Sun and moon are the same size and use the same glyph shapes as
+  the toolbar icons; the moon keeps its stock orientation (not mirrored, not rotated).
+
 ## [1.1.0] — 2026-11-19
 
 ### Changed
