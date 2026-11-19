@@ -11,7 +11,7 @@ services, no telemetry.
 | Plugin | What it does | Version | Download |
 |---|---|---|---|
 | [Theme Toggle](plugins/theme-toggle) | Switch Zotero's native light/dark color scheme from a toolbar button or `Ctrl/Cmd+Shift+D` — instantly, no restart. | 1.1.4 | [theme-toggle.xpi](https://github.com/murphyhoucn/zotero-plugin/releases/download/theme-toggle-v1.1.4/theme-toggle.xpi) |
-| [Annotate PDF](plugins/annotate-pdf) | Write Zotero's annotations into the PDF file itself — annotated copy, in-place overwrite (with backup), or Save As; from the item context menu or the PDF reader toolbar. | 1.0.0 | [annotate-pdf.xpi](https://github.com/murphyhoucn/zotero-plugin/releases/download/annotate-pdf-v1.0.0/annotate-pdf.xpi) |
+| [Annotate PDF](plugins/annotate-pdf) | Write Zotero's annotations into the PDF file itself — annotated copy, in-place overwrite (with backup), or Save As; from the item context menu or the PDF reader toolbar. Merges annotations made in other PDF apps and cleans up read-only leftovers. | 1.0.7 | [annotate-pdf.xpi](https://github.com/murphyhoucn/zotero-plugin/releases/download/annotate-pdf-v1.0.7/annotate-pdf.xpi) |
 
 ## Install a plugin
 
