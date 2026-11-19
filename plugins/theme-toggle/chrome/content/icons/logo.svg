@@ -2,24 +2,24 @@
   <title id="title">Sun / moon</title>
   <!-- rounded square -->
   <rect x="1.2" y="1.2" width="21.6" height="21.6" rx="5.6" fill="#2E3A59"/>
-  <!-- diagonal slash -->
-  <path d="M4.6 19.4 19.4 4.6" stroke="#E8ECF5" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- diagonal slash: thin and 50% transparent -->
+  <path d="M4.6 19.4 19.4 4.6" stroke="#E8ECF5" stroke-width="1" stroke-opacity="0.5" stroke-linecap="round"/>
   <!-- sun — upper left (same glyph shape as the toolbar sun icon) -->
-  <g transform="translate(7.3 7.3)">
-    <circle r="1.62" fill="#F6A623"/>
+  <g transform="translate(7.2 7.2)">
+    <circle r="1.86" fill="#F6A623"/>
     <g stroke="#F6A623" stroke-width="1" stroke-linecap="round" fill="none">
-      <path d="M0 -2.1V-2.8"/>
-      <path d="M0 2.1V2.8"/>
-      <path d="M-2.1 0H-2.8"/>
-      <path d="M2.1 0H2.8"/>
-      <path d="M-1.48 -1.48l-.5 -.5"/>
-      <path d="M1.48 1.48l.5 .5"/>
-      <path d="M-1.48 1.48l-.5 .5"/>
-      <path d="M1.48 -1.48l.5 -.5"/>
+      <path d="M0 -2.4V-3.2"/>
+      <path d="M0 2.4V3.2"/>
+      <path d="M-2.4 0H-3.2"/>
+      <path d="M2.4 0H3.2"/>
+      <path d="M-1.7 -1.7l-.56 -.56"/>
+      <path d="M1.7 1.7l.56 .56"/>
+      <path d="M-1.7 1.7l-.56 .56"/>
+      <path d="M1.7 -1.7l.56 -.56"/>
     </g>
   </g>
   <!-- moon — lower right (stock crescent glyph, upright and unmirrored, same size as the sun) -->
-  <g transform="translate(12.967 12.967) scale(0.3111)">
+  <g transform="translate(12.533 12.533) scale(0.3556)">
     <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" fill="#8FB6FF"/>
   </g>
 </svg>
