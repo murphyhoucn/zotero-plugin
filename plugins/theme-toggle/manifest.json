@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "Theme Toggle",
+  "version": "1.0.2",
+  "description": "Toggle Zotero's native light/dark color scheme from a toolbar button, the Tools menu, or a keyboard shortcut (Ctrl/Cmd+Shift+D).",
+  "author": "murphy",
+  "homepage_url": "https://github.com/murphyhoucn/zotero-plugin",
+  "icons": {
+    "48": "chrome/content/icons/moon.svg",
+    "96": "chrome/content/icons/moon.svg"
+  },
+  "applications": {
+    "zotero": {
+      "id": "theme-toggle@local",
+      "update_url": "https://raw.githubusercontent.com/murphyhoucn/zotero-plugin/main/plugins/theme-toggle/update.json",
+      "strict_min_version": "8.0",
+      "strict_max_version": "10.*"
+    }
+  }
+}
