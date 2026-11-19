@@ -68,6 +68,10 @@ const FALLBACK_STRINGS = {
 		"The annotations will be written directly into { $count } PDF file(s). A backup named \"<name>.bak.pdf\" is created first. Zotero-stored files may be re-uploaded if file sync is on; linked files are never uploaded. Continue?",
 		"将把标注直接写入 { $count } 个 PDF 文件（写前自动备份为「文件名.bak.pdf」；库内存储的文件若在文件同步中会重新上传，链接文件不受影响）。是否继续？",
 	],
+	"annotate-pdf-confirm-overwrite-text-nobackup": [
+		"The annotations will be written directly into { $count } PDF file(s). No backup is created, so the change cannot be undone. Continue?",
+		"将把标注直接写入 { $count } 个 PDF 文件（不会生成备份，修改不可撤销）。是否继续？",
+	],
 	"annotate-pdf-ask-title": ["Write annotations to PDF", "写入标注到 PDF"],
 	"annotate-pdf-ask-text": [
 		"How should the annotations be written into the file?",
@@ -76,6 +80,14 @@ const FALLBACK_STRINGS = {
 	"annotate-pdf-ask-copy": ["Save Annotated Copy", "生成副本"],
 	"annotate-pdf-ask-overwrite": ["Overwrite Original", "覆盖原文件"],
 	"annotate-pdf-error-title": ["Annotate PDF: error", "标注写入失败"],
+	"annotate-pdf-error-foreign-annotations": [
+		"The file already contains { $count } annotation(s) that were not written by this item in Zotero. To avoid deleting them the file was left unchanged — use \"Save Annotated Copy\" instead, or import those annotations into Zotero first.",
+		"文件中已存在 { $count } 条不是由本条目在 Zotero 写入的标注。为避免误删，本次未修改文件；请改用「生成副本」，或先把这些标注导入 Zotero 再试。",
+	],
+	"annotate-pdf-done-cleaned": [
+		"Removed { $count } annotation(s) left by a previous write",
+		"已清理上次写入遗留的 { $count } 条标注",
+	],
 	"annotate-pdf-error-encrypted": [
 		"The PDF is encrypted. Open it once in Zotero (and enter its password), then try again.",
 		"该 PDF 已加密。请在 Zotero 中打开它并输入密码后重试。",
@@ -97,6 +109,9 @@ var AnnotatePDF = {
 	selectedItems,
 	selectedPDFAttachments,
 	expandToPDFAttachments,
+	readEmbeddedAnnotations,
+	stripPreviousEmbeddedAnnotations,
+	removeEmbeddedAnnotations,
 	annotationCount,
 	annotatedBaseName,
 	uniqueFilePath,
@@ -363,6 +378,8 @@ function registerPrefDefaults() {
 		defaults.setStringPref("outputDir", "");
 		// Ask before writing into the original file
 		defaults.setBoolPref("confirmOverwrite", true);
+		// Keep a `<name>.bak.pdf` next to the file before overwriting it
+		defaults.setBoolPref("backupOnOverwrite", true);
 		// Suppress modal error alerts (for scripted/automated use)
 		defaults.setBoolPref("silentErrors", false);
 	}
@@ -383,6 +400,15 @@ function isSilentErrors() {
 function isConfirmOverwrite() {
 	try {
 		return Services.prefs.getBoolPref(PREF_PREFIX + "confirmOverwrite", true);
+	}
+	catch (e) {
+		return true;
+	}
+}
+
+function isBackupOnOverwrite() {
+	try {
+		return Services.prefs.getBoolPref(PREF_PREFIX + "backupOnOverwrite", true);
 	}
 	catch (e) {
 		return true;
@@ -538,8 +564,10 @@ function registerMenus() {
 				{
 					menuType: "menuitem",
 					l10nID: "annotate-pdf-menu",
-					icon: `chrome://${ADDON_REF}/content/icons/menu.svg`,
-					darkIcon: `chrome://${ADDON_REF}/content/icons/menu.svg`,
+					// PNGs, not SVG: Zotero's menu icon area does not resolve
+					// `context-fill`, so an SVG would render as an empty box.
+					icon: `chrome://${ADDON_REF}/content/icons/menu-light.png`,
+					darkIcon: `chrome://${ADDON_REF}/content/icons/menu-dark.png`,
 					// ZoteroPane does not pass an event to updateMenuPopup(), so
 					// this hook is registered as a popupshowing listener and only
 					// runs from the second time the menu is opened.
@@ -748,12 +776,102 @@ async function writeForAttachment(attachment, mode) {
 }
 
 /**
- * Write the annotations into the original file, keeping a backup.
+ * Read the annotations currently embedded in a PDF file, using Zotero's PDF
+ * worker (the same action behind "Import Annotations…", but without touching
+ * the database). The worker's `_query` is internal API; callers must handle
+ * failures by *not* writing rather than falling back to appending.
+ *
+ * @param {String} srcPath
+ * @param {String} password
+ * @return {Promise<Object[]>} parsed annotations ({ id?, type, position, comment, ... })
+ */
+async function readEmbeddedAnnotations(srcPath, password) {
+	if (typeof Zotero.PDFWorker._query !== "function") {
+		throw new Error("Zotero.PDFWorker._query is not available in this Zotero version");
+	}
+	const buf = new Uint8Array(await IOUtils.read(srcPath)).buffer;
+	const result = await Zotero.PDFWorker._query(
+		"pdf.importAnnotations",
+		{ buf, existingAnnotations: [], password: password || "", transfer: false },
+		[buf]
+	);
+	return (result && result.imported) || [];
+}
+
+/**
+ * Remove the annotations stored in a PDF file (`transfer`), without importing
+ * them into the database.
+ *
+ * @param {String} srcPath
+ * @param {String} password
+ * @return {Promise<{stripped: Boolean, total: Number}>}
+ */
+async function removeEmbeddedAnnotations(srcPath, password) {
+	const buf = new Uint8Array(await IOUtils.read(srcPath)).buffer;
+	const result = await Zotero.PDFWorker._query(
+		"pdf.importAnnotations",
+		{ buf, existingAnnotations: [], password: password || "", transfer: true },
+		[buf]
+	);
+	if (!result || !result.buf) {
+		return { stripped: false, total: 0 };
+	}
+	await IOUtils.write(srcPath, new Uint8Array(result.buf));
+	return { stripped: true, total: (result.imported || []).length };
+}
+
+/**
+ * Zotero's annotation writer *appends* to a page's `/Annots` array, so writing
+ * the same annotations into the same file twice would stack duplicates (a
+ * translucent highlight gets darker every time). Zotero itself never hits this
+ * because it always exports into a new file.
+ *
+ * Before an in-place write we therefore remove what is already embedded, but
+ * only when we are sure it is our own previous output: every annotation in the
+ * file must carry a Zotero key that belongs to this attachment's database
+ * annotations. Anything else (a foreign highlight, or an annotation from
+ * another library) makes us refuse rather than risk deleting data.
+ *
+ * @param {Zotero.Item} attachment
+ * @param {String} srcPath
+ * @param {String} password
+ * @return {Promise<{stripped: Boolean, embedded: Number}>}
+ */
+async function stripPreviousEmbeddedAnnotations(attachment, srcPath, password) {
+	const embedded = await readEmbeddedAnnotations(srcPath, password);
+	if (!embedded.length) {
+		return { stripped: false, embedded: 0 };
+	}
+	const ourKeys = new Set(
+		attachment.getAnnotations()
+			.filter(a => !a.annotationIsExternal)
+			.map(a => a.key)
+	);
+	const ours = embedded.filter(a => a.id && ourKeys.has(a.id));
+	const foreign = embedded.filter(a => !a.id || !ourKeys.has(a.id));
+	if (!ours.length || foreign.length) {
+		throw new Error(await getString("annotate-pdf-error-foreign-annotations", {
+			count: foreign.length || embedded.length,
+		}));
+	}
+	const result = await removeEmbeddedAnnotations(srcPath, password);
+	return { stripped: result.stripped, embedded: embedded.length };
+}
+
+/**
+ * Write the annotations into the original file (optionally keeping a backup).
  */
 async function writeOverwrite(attachment, srcPath, password) {
-	const backupPath = backupPathFor(srcPath);
-	await IOUtils.remove(backupPath, { ignoreAbsent: true });
-	await IOUtils.copy(srcPath, backupPath);
+	// 1) Backup first, so it holds the file as it was before any modification
+	let backupPath = null;
+	if (isBackupOnOverwrite()) {
+		backupPath = backupPathFor(srcPath);
+		await IOUtils.remove(backupPath, { ignoreAbsent: true });
+		await IOUtils.copy(srcPath, backupPath);
+	}
+	// 2) Drop annotations from a previous write so they don't stack up
+	const strip = await stripPreviousEmbeddedAnnotations(attachment, srcPath, password);
+	// 3) Write the current database annotations
 	const count = await exportAnnotations(attachment.id, srcPath, password);
 	// Mirror what Zotero's own in-place page operations (deletePages /
 	// rotatePages) do: record the new file mtime as "already processed", so the
@@ -767,7 +885,14 @@ async function writeOverwrite(attachment, srcPath, password) {
 	catch (e) {
 		Zotero.logError(e);
 	}
-	return { status: "ok", mode: "overwrite", path: srcPath, backupPath, count };
+	return {
+		status: "ok",
+		mode: "overwrite",
+		path: srcPath,
+		backupPath,
+		count,
+		strippedEmbedded: strip.stripped ? strip.embedded : 0,
+	};
 }
 
 /**
@@ -936,10 +1061,13 @@ async function confirmOverwrite(count) {
 		return true;
 	}
 	const win = Zotero.getMainWindow();
+	const textID = isBackupOnOverwrite()
+		? "annotate-pdf-confirm-overwrite-text"
+		: "annotate-pdf-confirm-overwrite-text-nobackup";
 	return Services.prompt.confirm(
 		win,
 		await getString("annotate-pdf-confirm-overwrite-title"),
-		await getString("annotate-pdf-confirm-overwrite-text", { count })
+		await getString(textID, { count })
 	);
 }
 
@@ -972,6 +1100,9 @@ async function reportResults(results) {
 				r.mode === "overwrite" ? "annotate-pdf-done-overwrite" : "annotate-pdf-done-copy"
 			);
 			lines.push(`${label} ${r.path}`);
+			if (r.strippedEmbedded > 0) {
+				lines.push(await getString("annotate-pdf-done-cleaned", { count: r.strippedEmbedded }));
+			}
 			if (r.mode === "overwrite" && r.backupPath && results.length === 1) {
 				lines.push(await getString("annotate-pdf-done-backup", { path: r.backupPath }));
 			}

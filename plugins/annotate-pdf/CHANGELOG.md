@@ -3,11 +3,35 @@
 All notable changes to the **Annotate PDF** plugin are documented here.
 This project uses semantic versioning; release tags are `annotate-pdf-v<version>`.
 
+## [1.0.2] — 2026-11-19
+
+### Fixed
+- **Repeated in-place writes no longer stack duplicate annotations.** Zotero's
+  annotation writer *appends* to each page's `/Annots` array, so writing the same
+  annotations into the same file again (only this plugin does that — Zotero
+  itself always exports into a new file) added another copy every time, making
+  translucent highlights darker and darker. Before an in-place write, the
+  annotations already embedded in the file are now removed via the PDF worker's
+  own "transfer" pass (without touching the database) and re-written once. This
+  also repairs files that were already written more than once.
+- Safety: that removal runs only when every embedded annotation carries a Zotero
+  key belonging to this attachment's database annotations. If the file contains
+  annotations from elsewhere (made in another reader, or from another library),
+  the write is refused with a clear message instead of risking their deletion —
+  use *Save Annotated Copy* for such files.
+- The success notification reports how many stale annotations were cleaned up.
+
 ### Changed
+- **Menu icon**: PNG icons (light/dark) instead of an SVG — Zotero's menu icon
+  area does not resolve `context-fill`, so the SVG showed up as an empty box.
+  `scripts/dev/make-menu-icons.js` regenerates them.
+- New preference `backupOnOverwrite` (default `true`): set it to `false` to write
+  in place without creating a `<name>.bak.pdf` copy.
 - New preference `confirmOverwrite` (default `true`): set it to `false` to skip
   the confirmation prompt for *overwrite* (one-click in-place writing).
 - The overwrite confirmation text now states that linked files are never uploaded
-  (no sync consequences), while Zotero-stored files may be re-uploaded.
+  (no sync consequences), while Zotero-stored files may be re-uploaded; with
+  backups disabled it warns that the change cannot be undone.
 
 ## [1.0.1] — 2026-11-19
 

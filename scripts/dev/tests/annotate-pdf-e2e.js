@@ -388,6 +388,53 @@
 			};
 		});
 
+		/* ---- 5b. overwrite without a backup ----------------------------- */
+		await guard("overwrite-no-backup", async () => {
+			const pref = "extensions.zotero.annotate-pdf.backupOnOverwrite";
+			const prev = Services.prefs.getBoolPref(pref, true);
+			try {
+				Services.prefs.setBoolPref(pref, false);
+				const srcPath = await attachment.getFilePathAsync();
+				const bakPath = srcPath.replace(/\.pdf$/i, "") + ".bak.pdf";
+				await IOUtils.remove(bakPath, { ignoreAbsent: true });
+				const result = await A.writeForAttachment(attachment, "overwrite");
+				return {
+					status: result.status,
+					backupPath: result.backupPath === undefined ? null : result.backupPath,
+					backupCreated: await IOUtils.exists(bakPath),
+					hasAnnotationsInFile: await Z.PDFWorker.hasAnnotations(attachment.id),
+					dbAnnotationCount: A.annotationCount(attachment),
+				};
+			}
+			finally {
+				Services.prefs.setBoolPref(pref, prev);
+			}
+		});
+
+		/* ---- 5c. repeated overwrite must not stack duplicates ----------- */
+		await guard("overwrite-twice-no-stacking", async () => {
+			const srcPath = await attachment.getFilePathAsync();
+			// Every annotation written by Zotero carries "/NM (Zotero-<key>)", so
+			// counting that marker in the raw bytes reveals duplicate copies.
+			const countMarkers = async () => {
+				const bytes = await IOUtils.read(srcPath);
+				const text = new TextDecoder("latin1").decode(bytes);
+				return text.split("Zotero-").length - 1;
+			};
+			const dbCount = A.annotationCount(attachment);
+			const before = await countMarkers();
+			const result = await A.writeForAttachment(attachment, "overwrite");
+			const after = await countMarkers();
+			return {
+				dbCount,
+				markersBefore: before,
+				markersAfter: after,
+				strippedEmbedded: result.strippedEmbedded,
+				stacked: after !== before,
+				clean: after === before && after >= dbCount,
+			};
+		});
+
 		/* ---- 6. open reader on the original: no duplicate imports ------- */
 		await guard("reader-open-original", () => withTimeout((async () => {
 			const before = attachment.getAnnotations().length;
@@ -405,6 +452,11 @@
 
 		/* ---- 7. reader toolbar button ---------------------------------- */
 		await guard("reader-toolbar-button", () => withTimeout((async () => {
+			// Force the copy action for this step, so the result is a new attachment
+			// regardless of the user's defaultAction preference
+			const pref = "extensions.zotero.annotate-pdf.defaultAction";
+			const prevMode = Services.prefs.getStringPref(pref, "copy");
+			Services.prefs.setStringPref(pref, "copy");
 			let reader = (Z.Reader._readers || []).find((r) => r.itemID === attachment.id);
 			if (!reader) {
 				noteProgress("  button: opening reader");
@@ -448,6 +500,7 @@
 				info.clickWorked = info.newAttachments.length > 0;
 				created.items.push(...info.newAttachments);
 			}
+			Services.prefs.setStringPref(pref, prevMode);
 			return info;
 		})(), 60000, "reader-toolbar-button"));
 
