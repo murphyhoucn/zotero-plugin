@@ -3,6 +3,32 @@
 All notable changes to the **Annotate PDF** plugin are documented here.
 This project uses semantic versioning; release tags are `annotate-pdf-v<version>`.
 
+## [1.0.7] — 2026-11-19
+
+### Fixed
+- **Read-only leftovers are cleaned up on write.** Every time an annotated file
+  is opened, Zotero imports the file's annotations as read-only ("external")
+  copies; after a few writes they pile up as layered, non-editable annotations in
+  the reader. An overwrite now moves read-only items that duplicate a normal
+  annotation to the trash, so only the editable annotations remain. Read-only
+  items with no counterpart in the file are converted into editable annotations
+  instead of being lost.
+  Verified on a real library: 39 affected papers fixed in place, 5,269
+  annotations, none left read-only, no duplicates in the files.
+
+## [1.0.6] — 2026-11-19
+
+### Fixed
+- **Menu marker is now a text glyph in front of the label.** Zotero's menu icon
+  mechanism (`menuitem-iconic` + `--custom-menu-icon-light/dark`) produced no
+  visible pixels on the reported setup even though the DOM, the CSS variables and
+  the PNG were all verified correct. The entry now simply carries `🖍️` as part of
+  its label, which always renders. New preference `menuIconStyle` (`glyph`,
+  default, or `image` for the PNG approach).
+- The plugin now watches the library item context menu itself, so the entry's
+  visibility and marker are applied from the **first** time the menu is opened
+  (Zotero only runs the `MenuManager.onShowing` hook from the second open).
+
 ## [1.0.5] — 2026-11-19
 
 ### Added

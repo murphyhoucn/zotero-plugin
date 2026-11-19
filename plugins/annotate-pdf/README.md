@@ -72,6 +72,7 @@ selectable, they show up in the comments pane, and Zotero can import them again.
 | `extensions.zotero.annotate-pdf.confirmOverwrite` | `true` \| `false` | `true` | Ask for confirmation before writing into the original file. Set to `false` for a one-click overwrite workflow. |
 | `extensions.zotero.annotate-pdf.backupOnOverwrite` | `true` \| `false` | `true` | Keep a `<name>.bak.pdf` copy of the file before overwriting it. Set to `false` to write purely in place. |
 | `extensions.zotero.annotate-pdf.adoptForeignAnnotations` | `true` \| `false` | `true` | When the file contains annotations made elsewhere, import them into Zotero (editable) before writing. Set to `false` to refuse such files instead. |
+| `extensions.zotero.annotate-pdf.menuIconStyle` | `glyph` \| `image` | `glyph` | Marker in front of the menu entry: a `🖍️` text glyph (always renders) or a PNG drawn by Zotero's menu icon mechanism. |
 | `extensions.zotero.annotate-pdf.silentErrors` | `true` \| `false` | `false` | Suppress the modal error alert (for scripted/automated use). |
 
 Set them in **Settings → Advanced → Config Editor** (search for `annotate-pdf`).
@@ -126,10 +127,13 @@ Set them in **Settings → Advanced → Config Editor** (search for `annotate-pd
 - **In-place writes are repeatable and safe**: annotations this plugin wrote into
   the file earlier are removed before each new write, so nothing stacks up (that
   is a plugin-only situation — Zotero itself always exports into a new file).
-  Files that were written more than once are repaired by the next write. If the
-  file contains annotations that did **not** come from this item in Zotero, the
-  in-place write is refused instead of risking their deletion — use *Save
-  Annotated Copy* for such files.
+  Files that were written more than once are repaired by the next write. The
+  read-only ("external") annotation items Zotero creates whenever an annotated
+  file is opened are moved to the trash when they duplicate a normal annotation,
+  so the reader never shows layered, non-editable copies.
+  If the file contains annotations that did **not** come from this item in Zotero,
+  they are imported into Zotero as editable annotations first (see above) —
+  set `adoptForeignAnnotations` to `false` to refuse such files instead.
 - An annotated **copy** opened in Zotero shows the embedded annotations as
   *external* (read-only, with a lock icon). That is normal Zotero behaviour for
   annotations stored in the file; the database of the copy gets its own items.
@@ -217,6 +221,7 @@ Zotero 的标注保存在数据库里而不是 PDF 里（官方出于同步性�
 | `extensions.zotero.annotate-pdf.confirmOverwrite` | `true`/`false` | `true` | 覆盖原文件前是否弹确认框；设为 `false` 就是"一键覆盖" |
 | `extensions.zotero.annotate-pdf.backupOnOverwrite` | `true`/`false` | `true` | 覆盖前是否保留一份 `<文件名>.bak.pdf`；设为 `false` 就是纯原地写入 |
 | `extensions.zotero.annotate-pdf.adoptForeignAnnotations` | `true`/`false` | `true` | 文件里有别处（其它 PDF 软件）加的标注时，是否先导入 Zotero（变为可编辑）再写回；设为 `false` 则改为拒绝覆盖 |
+| `extensions.zotero.annotate-pdf.menuIconStyle` | `glyph`/`image` | `glyph` | 菜单项前面的标记：`🖍️` 文字字形（必定显示）或 PNG 图片图标（Zotero 菜单图标机制） |
 | `extensions.zotero.annotate-pdf.silentErrors` | `true`/`false` | `false` | 静默错误弹窗（脚本化使用） |
 
 ### 可逆性与显示（重要）
@@ -247,8 +252,10 @@ Zotero 的标注保存在数据库里而不是 PDF 里（官方出于同步性�
   `<文件名>.bak.pdf` 备份、默认弹一次确认框——风险请自行评估。
 - **可重复覆盖**：插件每次覆盖前会先移除上一次写进文件的标注，所以不会"越写越深"
   （这是插件特有的情况——Zotero 官方只往新文件写）；已经被写过多次的文件，再覆盖一次就会
-  自动修好。如果文件里存在**不是本条目在 Zotero 写入**的标注，为免误删会拒绝覆盖
-  （这类文件请用「生成副本」）。
+  自动修好。Zotero 每次打开带标注的文件都会生成一批**只读副本**，覆盖时插件会把与正常
+  标注重复的那些移入回收站（阅读器里不再出现"叠了一层又改不动"）；文件里与正常标注对不上
+  的只读标注会被转换成可编辑标注，不会丢失。文件里若是**别的 PDF 软件**加的标注，会先
+  导入 Zotero 变成可编辑标注再写回（想改为拒绝，把 `adoptForeignAnnotations` 设为 `false`）。
 - 生成的**副本**用 Zotero 打开时，文件里的标注会显示为「外部（只读）」并带锁形图标，
   这是 Zotero 的正常设计。
 - 中文的**文字批注（text 类型）**在外部阅读器可能没有外观流（Zotero 写入器只嵌入拉丁字体）；
