@@ -22,3 +22,5 @@ annotate-pdf-error-encrypted = The PDF is encrypted. Open it once in Zotero (and
 annotate-pdf-error-foreign-annotations = The file already contains { $count } annotation(s) that were not written by this item in Zotero. To avoid deleting them the file was left unchanged — use "Save Annotated Copy" instead, or import those annotations into Zotero first.
 annotate-pdf-done-cleaned = Removed { $count } annotation(s) left by a previous write
 annotate-pdf-error-generic = Failed to write annotations: { $message }
+annotate-pdf-done-adopted = Imported { $count } annotation(s) from the file into Zotero (now editable)
+annotate-pdf-done-trashed = Moved { $count } duplicate read-only annotation(s) to the trash

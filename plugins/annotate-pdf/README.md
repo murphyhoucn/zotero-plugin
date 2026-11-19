@@ -31,9 +31,13 @@ This plugin adds exactly that: two entry points and three write modes.
     annotated copy imported as a new attachment of the same item.
   - **overwrite** — writes the annotations into the file itself. By default a
     backup named `<name>.bak.pdf` is created first; set
-    `backupOnOverwrite` to `false` to skip it (pure in-place write). (Zotero
-    removed this capability in Zotero 6 because it can cause sync conflicts —
-    see *Caveats* below.)
+    `backupOnOverwrite` to `false` to skip it (pure in-place write).
+    Annotations found in the file that came from **another PDF app** are imported
+    into Zotero as editable annotations first (Zotero's own *Import Annotations…*
+    round trip) and then written back, so nothing is lost and the read-only
+    copies Zotero created for them are superseded — see *Reversibility* below.
+    (Zotero removed in-place writing in Zotero 6 because it can cause sync
+    conflicts — see *Caveats*.)
   - **saveas** — save to a location you pick.
   - **ask** — a small dialog lets you choose between copy and overwrite each time.
 - **PDF reader toolbar button** — in the PDF reader's toolbar; runs the same
@@ -67,6 +71,7 @@ selectable, they show up in the comments pane, and Zotero can import them again.
 | `extensions.zotero.annotate-pdf.outputDir` | path | *(empty)* | If set, *copy* always writes `<outputDir>/<name> (annotated).pdf` instead of the per-attachment defaults. |
 | `extensions.zotero.annotate-pdf.confirmOverwrite` | `true` \| `false` | `true` | Ask for confirmation before writing into the original file. Set to `false` for a one-click overwrite workflow. |
 | `extensions.zotero.annotate-pdf.backupOnOverwrite` | `true` \| `false` | `true` | Keep a `<name>.bak.pdf` copy of the file before overwriting it. Set to `false` to write purely in place. |
+| `extensions.zotero.annotate-pdf.adoptForeignAnnotations` | `true` \| `false` | `true` | When the file contains annotations made elsewhere, import them into Zotero (editable) before writing. Set to `false` to refuse such files instead. |
 | `extensions.zotero.annotate-pdf.silentErrors` | `true` \| `false` | `false` | Suppress the modal error alert (for scripted/automated use). |
 
 Set them in **Settings → Advanced → Config Editor** (search for `annotate-pdf`).
@@ -103,6 +108,11 @@ Set them in **Settings → Advanced → Config Editor** (search for `annotate-pd
   file. For an overwritten original that is simply your own annotations
   (editable). For an annotated copy, the file's annotations only show up after
   Zotero imports them — as the read-only external items mentioned above.
+- **Using two apps on the same PDF** (Zotero + Acrobat/Preview/…): opening an
+  externally edited file in Zotero imports its annotations as read-only copies
+  (that is Zotero's design, and why you can see "doubled" annotations). Running
+  *overwrite* from this plugin afterwards makes them editable and writes one
+  clean set back — a single click merges both worlds again.
 
 ## Caveats
 
@@ -180,6 +190,9 @@ Zotero 的标注保存在数据库里而不是 PDF 里（官方出于同步性�
     `<文件名> (annotated).pdf`；Zotero 库内存储的 PDF 作为同一条目下的新附件导入。
   - **overwrite（覆盖原文件）**：把标注直接写进原文件。默认写前在旁边留一份
     `<文件名>.bak.pdf`；把 `backupOnOverwrite` 设为 `false` 就是纯原地写入、不留备份。
+    若文件里有**别的 PDF 软件**加的标注，会先按 Zotero 官方「导入标注…」的方式把它们
+    **导入 Zotero 变成可编辑标注**，再整份写回（不丢内容，并取代 Zotero 之前为它们
+    建立的只读副本）——见下方「可逆性与显示」。
   - **saveas（另存为）**：自己选保存位置。
   - **ask**：每次弹一个小对话框让你选「生成副本 / 覆盖原文件」。
 - **阅读器工具栏按钮**：PDF 阅读器顶栏一键执行同一个 `defaultAction`。
@@ -203,6 +216,7 @@ Zotero 的标注保存在数据库里而不是 PDF 里（官方出于同步性�
 | `extensions.zotero.annotate-pdf.outputDir` | 目录路径 | 空 | 若设置，`copy` 一律写到该目录 |
 | `extensions.zotero.annotate-pdf.confirmOverwrite` | `true`/`false` | `true` | 覆盖原文件前是否弹确认框；设为 `false` 就是"一键覆盖" |
 | `extensions.zotero.annotate-pdf.backupOnOverwrite` | `true`/`false` | `true` | 覆盖前是否保留一份 `<文件名>.bak.pdf`；设为 `false` 就是纯原地写入 |
+| `extensions.zotero.annotate-pdf.adoptForeignAnnotations` | `true`/`false` | `true` | 文件里有别处（其它 PDF 软件）加的标注时，是否先导入 Zotero（变为可编辑）再写回；设为 `false` 则改为拒绝覆盖 |
 | `extensions.zotero.annotate-pdf.silentErrors` | `true`/`false` | `false` | 静默错误弹窗（脚本化使用） |
 
 ### 可逆性与显示（重要）
@@ -218,6 +232,11 @@ Zotero 的标注保存在数据库里而不是 PDF 里（官方出于同步性�
 - **Zotero 界面里显示的是数据库里的标注**，不是 PDF 文件里那份。覆盖过的原文件显示的
   就是你原来的标注（可编辑、无锁）；而副本里的标注只有在 Zotero 导入后才会显示出来
   （且显示为上述只读状态）。
+- **两个软件轮着编辑同一个 PDF**（Zotero + Acrobat/Preview 等）：用 Zotero 打开
+  外部编辑过的文件时，Zotero 会把文件里的标注导入成**只读副本**——这就是你看到
+  "标注重叠、又改不动"的原因（Zotero 的设计如此）。此后只要对这篇执行一次
+  **覆盖原文件**，这些标注会变成可编辑、并把一份干净的完整标注写回文件，两个软件
+  的标注就合到一起了。
 
 ### 注意事项
 

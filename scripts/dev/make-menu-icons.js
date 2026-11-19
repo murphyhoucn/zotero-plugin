@@ -156,8 +156,8 @@ function makeIcon(pageColor) {
 
 const outDir = path.join(__dirname, "..", "..", "plugins", "annotate-pdf", "chrome", "content", "icons");
 const files = {
-	"menu-light.png": makeIcon([64, 114, 229]),    // Zotero accent blue, for light menus
-	"menu-dark.png": makeIcon([122, 162, 255]),    // lighter blue, for dark menus
+	"icon-menu.png": makeIcon([64, 114, 229]),      // Zotero accent blue, for light menus
+	"icon-menu-dark.png": makeIcon([122, 162, 255]), // lighter blue, for dark menus
 };
 for (const [name, data] of Object.entries(files)) {
 	const p = path.join(outDir, name);

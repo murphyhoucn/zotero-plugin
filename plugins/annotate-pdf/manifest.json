@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Annotate PDF",
-  "version": "1.0.3",
+  "version": "1.0.7",
   "description": "Write Zotero's annotations into the PDF file itself — save an annotated copy, overwrite the original (with automatic backup), or save as, from the item context menu or the PDF reader toolbar.",
   "author": "murphy",
   "homepage_url": "https://github.com/murphyhoucn/zotero-plugin",

@@ -3,6 +3,33 @@
 All notable changes to the **Annotate PDF** plugin are documented here.
 This project uses semantic versioning; release tags are `annotate-pdf-v<version>`.
 
+## [1.0.5] — 2026-11-19
+
+### Added
+- **PDFs annotated in other apps are taken over instead of refused.** If the file
+  already carries annotations that were not written by this item (made in another
+  PDF app, or coming from another library), the in-place write now first runs
+  Zotero's own "Import Annotations…" round trip: those annotations become normal,
+  editable database annotations and the file is stripped of them; copies created
+  for annotations this item already has are dropped again, so nothing is
+  duplicated. The read-only ("external") items Zotero creates when you open an
+  externally edited file are superseded by the same flow. The file then gets a
+  single clean copy of everything.
+  New preference `adoptForeignAnnotations` (default `true`); set it to `false` to
+  restore the previous behaviour (refuse and suggest *Save Annotated Copy*).
+
+## [1.0.4] — 2026-11-19
+
+### Fixed
+- **Menu icon, second attempt.** With 1.0.3 the icon was correct in the DOM
+  (class `menuitem-iconic`, `--custom-menu-icon-light/dark` set, PNG decodable)
+  yet still showed as an empty box. Two changes:
+  - the icon files were renamed (`icon-menu.png` / `icon-menu-dark.png`) so the
+    image cache cannot keep serving the old bytes for the same URL;
+  - the `onShowing` hook now additionally sets the `src` of the item's icon
+    `<image>` directly, instead of relying only on Zotero resolving the CSS
+    variables.
+
 ## [1.0.3] — 2026-11-19
 
 ### Fixed

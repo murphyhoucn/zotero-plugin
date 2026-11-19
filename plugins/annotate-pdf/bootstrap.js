@@ -33,6 +33,10 @@ const FTL_FILE = "annotate-pdf.ftl";
 const PREF_PREFIX = "extensions.zotero.annotate-pdf.";
 const MENU_ID = "annotate-pdf-menu";
 const READER_BUTTON_ID = "annotate-pdf-reader-button";
+const ITEM_MENU_ID = "zotero-itemmenu";
+const ITEM_MARKER_CLASS = "annotate-pdf-menu-item";
+// Glyph shown in front of the menu label when menuIconStyle = "glyph"
+const MENU_GLYPH = "🖍️";
 
 const SUFFIX_EN = " (annotated)";
 const SUFFIX_ZH = "（标注版）";
@@ -87,6 +91,14 @@ const FALLBACK_STRINGS = {
 	"annotate-pdf-done-cleaned": [
 		"Removed { $count } annotation(s) left by a previous write",
 		"已清理上次写入遗留的 { $count } 条标注",
+	],
+	"annotate-pdf-done-adopted": [
+		"Imported { $count } annotation(s) from the file into Zotero (now editable)",
+		"已把文件里 { $count } 条外部标注导入 Zotero（现在可编辑）",
+	],
+	"annotate-pdf-done-trashed": [
+		"Moved { $count } duplicate read-only annotation(s) to the trash",
+		"已把 { $count } 条重复的只读标注移入回收站",
 	],
 	"annotate-pdf-error-encrypted": [
 		"The PDF is encrypted. Open it once in Zotero (and enter its password), then try again.",
@@ -291,6 +303,7 @@ function setupWindow(win) {
 			return;
 		}
 		win.MozXULElement.insertFTLIfNeeded(FTL_FILE);
+		addItemMenuListener(win);
 	}
 	catch (e) {
 		Zotero.logError(e);
@@ -302,10 +315,112 @@ function teardownWindow(win) {
 		if (!win || !win.document || win.closed) {
 			return;
 		}
+		if (win.__annotatePdfMenuHandler) {
+			const menu = win.document.getElementById(ITEM_MENU_ID);
+			if (menu) {
+				menu.removeEventListener("popupshowing", win.__annotatePdfMenuHandler);
+			}
+			delete win.__annotatePdfMenuHandler;
+		}
 		win.document.querySelector(`link[href="${FTL_FILE}"]`)?.remove();
 	}
 	catch (e) {
 		// Ignore
+	}
+}
+
+/**
+ * Watch the library item context menu ourselves. Zotero registers the
+ * MenuManager `onShowing` hook as a `popupshowing` listener, so it only runs
+ * from the *second* time the menu is opened; our own listener runs immediately
+ * (the menu items exist by the time the popup is shown) and keeps the entry's
+ * visibility and icon in sync.
+ */
+function addItemMenuListener(win) {
+	try {
+		const menu = win.document.getElementById(ITEM_MENU_ID);
+		if (!menu || win.__annotatePdfMenuHandler) {
+			return;
+		}
+		const handler = () => {
+			try {
+				applyItemMenuState(win);
+			}
+			catch (e) {
+				Zotero.logError(e);
+			}
+		};
+		menu.addEventListener("popupshowing", handler);
+		win.__annotatePdfMenuHandler = handler;
+	}
+	catch (e) {
+		Zotero.logError(e);
+	}
+}
+
+function findMenuItem(win) {
+	try {
+		const menu = win.document.getElementById(ITEM_MENU_ID);
+		if (!menu) {
+			return null;
+		}
+		return menu.querySelector(`.${ITEM_MARKER_CLASS}`)
+			|| menu.querySelector('[data-l10n-id="annotate-pdf-menu"]');
+	}
+	catch (e) {
+		return null;
+	}
+}
+
+/**
+ * Sync the menu entry: hide it unless the selection has PDF attachments, and
+ * mark it with either a text glyph or the PNG icon.
+ */
+function applyItemMenuState(win) {
+	const item = findMenuItem(win);
+	if (!item) {
+		return;
+	}
+	item.classList.add(ITEM_MARKER_CLASS);
+	item.hidden = expandToPDFAttachments(selectedItems()).length === 0;
+
+	const image = item.querySelector("image, .menu-icon");
+	if (getMenuIconStyle() === "glyph") {
+		// A text glyph always renders, unlike Zotero's menu icon CSS variables on
+		// some setups; drop the icon box so only the glyph shows.
+		item.style.setProperty("--custom-menu-icon-light", "initial");
+		item.style.setProperty("--custom-menu-icon-dark", "initial");
+		item.classList.remove("menuitem-iconic", "menu-iconic");
+		if (image) {
+			image.removeAttribute("src");
+		}
+		getString("annotate-pdf-menu")
+			.then((label) => {
+				item.removeAttribute("data-l10n-id");
+				item.setAttribute("label", MENU_GLYPH + " " + label);
+			})
+			.catch(() => {});
+	}
+	else {
+		if (image && !image.getAttribute("src")) {
+			let dark = false;
+			try {
+				dark = Services.prefs.getIntPref("browser.theme.toolbar-theme", 2) === 0;
+			}
+			catch (e) {
+				// Ignore: default to the light variant
+			}
+			image.setAttribute(
+				"src",
+				`chrome://${ADDON_REF}/content/icons/${dark ? "icon-menu-dark" : "icon-menu"}.png`
+			);
+		}
+		getString("annotate-pdf-menu")
+			.then((label) => {
+				item.setAttribute("label", label);
+				item.setAttribute("data-l10n-id", "annotate-pdf-menu");
+			})
+			.catch(() => {});
 	}
 }
 
@@ -381,6 +496,11 @@ function registerPrefDefaults() {
 		defaults.setBoolPref("confirmOverwrite", true);
 		// Keep a `<name>.bak.pdf` next to the file before overwriting it
 		defaults.setBoolPref("backupOnOverwrite", true);
+		// Import annotations made in other apps into Zotero instead of refusing
+		defaults.setBoolPref("adoptForeignAnnotations", true);
+		// Menu marker: "glyph" (a text glyph before the label, always renders) or
+		// "image" (a PNG drawn by Zotero's menu icon mechanism)
+		defaults.setStringPref("menuIconStyle", "glyph");
 		// Suppress modal error alerts (for scripted/automated use)
 		defaults.setBoolPref("silentErrors", false);
 	}
@@ -413,6 +533,33 @@ function isBackupOnOverwrite() {
 	}
 	catch (e) {
 		return true;
+	}
+}
+
+/**
+ * Whether annotations found in the file that were not written by this item
+ * (e.g. made in another PDF app) should be imported into Zotero on write.
+ */
+function isAdoptForeignAnnotations() {
+	try {
+		return Services.prefs.getBoolPref(PREF_PREFIX + "adoptForeignAnnotations", true);
+	}
+	catch (e) {
+		return true;
+	}
+}
+
+/**
+ * How the item menu entry is marked: "glyph" draws a text glyph in front of the
+ * label (always renders), "image" uses Zotero's menu icon mechanism.
+ */
+function getMenuIconStyle() {
+	try {
+		const value = Services.prefs.getStringPref(PREF_PREFIX + "menuIconStyle", "glyph");
+		return value === "image" ? "image" : "glyph";
+	}
+	catch (e) {
+		return "glyph";
 	}
 }
 
@@ -566,9 +713,9 @@ function registerMenus() {
 					menuType: "menuitem",
 					l10nID: "annotate-pdf-menu",
 					// PNGs, not SVG: Zotero's menu icon area does not resolve
-					// `context-fill`, so an SVG would render as an empty box.
-					icon: `chrome://${ADDON_REF}/content/icons/menu-light.png`,
-					darkIcon: `chrome://${ADDON_REF}/content/icons/menu-dark.png`,
+					// `context-fill`, so an SVG renders as an empty box.
+					icon: `chrome://${ADDON_REF}/content/icons/icon-menu.png`,
+					darkIcon: `chrome://${ADDON_REF}/content/icons/icon-menu-dark.png`,
 					// ZoteroPane does not pass an event to updateMenuPopup(), so
 					// this hook is registered as a popupshowing listener and only
 					// runs from the second time the menu is opened.
@@ -590,6 +737,11 @@ function onMenuShowing(context) {
 		// the live selection for other callers.
 		const items = (context && Array.isArray(context.items)) ? context.items : selectedItems();
 		context.setVisible(expandToPDFAttachments(items).length > 0);
+		// Keep the icon/label in sync as well (see applyItemMenuState)
+		const menuElem = context && context.menuElem;
+		if (menuElem && menuElem.ownerGlobal) {
+			applyItemMenuState(menuElem.ownerGlobal);
+		}
 	}
 	catch (e) {
 		Zotero.logError(e);
@@ -886,6 +1038,126 @@ async function stripPreviousEmbeddedAnnotations(attachment, srcPath, password) {
 }
 
 /**
+ * Normalize an annotation for comparison: accepts an annotation item
+ * (`annotationType`/`annotationPosition`/`annotationComment`) or a parsed
+ * annotation from the PDF worker (`type`/`position`/`comment`).
+ */
+function annotationShape(input) {
+	let type;
+	let position;
+	let comment;
+	if (input && typeof input.annotationType === "string") {
+		type = input.annotationType;
+		try {
+			position = JSON.parse(input.annotationPosition);
+		}
+		catch (e) {
+			position = null;
+		}
+		comment = input.annotationComment || "";
+	}
+	else if (input) {
+		type = input.type;
+		position = input.position;
+		comment = input.comment || "";
+	}
+	if (!position) {
+		return null;
+	}
+	return {
+		type,
+		pageIndex: position.pageIndex,
+		rects: (position.rects || [])
+			.map(r => r.map(n => Math.round(n * 10) / 10).join(","))
+			.sort()
+			.join(";"),
+		comment: String(comment).trim(),
+	};
+}
+
+function sameAnnotation(a, b) {
+	const sa = annotationShape(a);
+	const sb = annotationShape(b);
+	if (!sa || !sb) {
+		return false;
+	}
+	return sa.type === sb.type
+		&& sa.pageIndex === sb.pageIndex
+		&& sa.rects === sb.rects
+		&& sa.comment === sb.comment;
+}
+
+/**
+ * Take over annotations that are in the file but were not written by this item
+ * (e.g. made with another PDF app) by running Zotero's own "Import Annotations…"
+ * round trip: they become normal (editable) items in the database and the file
+ * is stripped of them. Copies created for our own annotations are dropped again
+ * so nothing is duplicated, and the read-only ("external") items Zotero created
+ * when the externally-edited file was opened are superseded by that same flow.
+ *
+ * @return {Promise<{adopted: Number, external: Number}>}
+ */
+async function adoptForeignAnnotations(attachment, embedded, password) {
+	const ourKeys = new Set(
+		attachment.getAnnotations()
+			.filter(a => !a.annotationIsExternal)
+			.map(a => a.key)
+	);
+	const foreign = embedded.filter(a => !a.id || !ourKeys.has(a.id));
+	if (!foreign.length) {
+		return { adopted: 0, external: 0 };
+	}
+	if (!isAdoptForeignAnnotations()) {
+		throw new Error(await getString("annotate-pdf-error-foreign-annotations", {
+			count: foreign.length,
+		}));
+	}
+	if (typeof Zotero.PDFWorker.import !== "function") {
+		throw new Error(await getString("annotate-pdf-error-foreign-annotations", {
+			count: foreign.length,
+		}));
+	}
+	const beforeItems = attachment.getAnnotations();
+	const beforeKeys = new Set(beforeItems.map(a => a.key));
+	const ourItems = beforeItems.filter(a => !a.annotationIsExternal);
+	const externalCount = beforeItems.length - ourItems.length;
+	// Zotero's round trip: imports everything as editable annotations and
+	// removes the transferable annotations from the file
+	await Zotero.PDFWorker.import(attachment.id, true, password || "", true);
+	const afterItems = attachment.getAnnotations();
+	const fresh = afterItems.filter(a => !beforeKeys.has(a.key));
+	const duplicates = fresh.filter(f => ourItems.some(o => sameAnnotation(o, f)));
+	if (duplicates.length) {
+		await Zotero.Items.erase(duplicates.map(a => a.id));
+	}
+	return { adopted: foreign.length, external: externalCount };
+}
+
+/**
+ * Move read-only ("external") annotation items that duplicate a normal
+ * annotation of the same attachment to the trash. These are the leftovers
+ * Zotero creates when a file that carries annotations is opened (each time the
+ * file is written again, another set of locked copies appears) — after the file
+ * has been cleaned up they are pure noise and cannot be edited in the reader.
+ *
+ * @return {Promise<Number>} number of items trashed
+ */
+async function trashDuplicateExternalAnnotations(attachment) {
+	const items = attachment.getAnnotations();
+	const externals = items.filter(a => a.annotationIsExternal);
+	if (!externals.length) {
+		return 0;
+	}
+	const normals = items.filter(a => !a.annotationIsExternal);
+	const duplicates = externals.filter(e => normals.some(n => sameAnnotation(n, e)));
+	for (const item of duplicates) {
+		item.deleted = true;
+		await item.saveTx({ skipAll: true });
+	}
+	return duplicates.length;
+}
+
+/**
  * Write the annotations into the original file (optionally keeping a backup).
  */
 async function writeOverwrite(attachment, srcPath, password) {
@@ -896,10 +1168,19 @@ async function writeOverwrite(attachment, srcPath, password) {
 		await IOUtils.remove(backupPath, { ignoreAbsent: true });
 		await IOUtils.copy(srcPath, backupPath);
 	}
-	// 2) Drop annotations from a previous write so they don't stack up
+	// 2) Take over annotations that came from other apps (they would otherwise be
+	//    kept as read-only copies, or block the write)
+	let adoption = { adopted: 0, external: 0 };
+	const embedded = await readEmbeddedAnnotations(srcPath, password, attachment.id);
+	if (embedded.length) {
+		adoption = await adoptForeignAnnotations(attachment, embedded, password);
+	}
+	// 3) Drop annotations from a previous write so they don't stack up
 	const strip = await stripPreviousEmbeddedAnnotations(attachment, srcPath, password);
-	// 3) Write the current database annotations
+	// 4) Write the current database annotations
 	const count = await exportAnnotations(attachment.id, srcPath, password);
+	// 5) Drop read-only duplicates left over from earlier writes/imports
+	const trashedExternals = await trashDuplicateExternalAnnotations(attachment);
 	// Mirror what Zotero's own in-place page operations (deletePages /
 	// rotatePages) do: record the new file mtime as "already processed", so the
 	// reader doesn't re-import the annotations we just embedded as external
@@ -919,6 +1200,9 @@ async function writeOverwrite(attachment, srcPath, password) {
 		backupPath,
 		count,
 		strippedEmbedded: strip.stripped ? strip.embedded : 0,
+		adoptedEmbedded: adoption.adopted,
+		adoptedExternalItems: adoption.external,
+		trashedExternalItems: trashedExternals,
 	};
 }
 
@@ -1127,8 +1411,14 @@ async function reportResults(results) {
 				r.mode === "overwrite" ? "annotate-pdf-done-overwrite" : "annotate-pdf-done-copy"
 			);
 			lines.push(`${label} ${r.path}`);
+			if (r.adoptedEmbedded > 0) {
+				lines.push(await getString("annotate-pdf-done-adopted", { count: r.adoptedEmbedded }));
+			}
 			if (r.strippedEmbedded > 0) {
 				lines.push(await getString("annotate-pdf-done-cleaned", { count: r.strippedEmbedded }));
+			}
+			if (r.trashedExternalItems > 0) {
+				lines.push(await getString("annotate-pdf-done-trashed", { count: r.trashedExternalItems }));
 			}
 			if (r.mode === "overwrite" && r.backupPath && results.length === 1) {
 				lines.push(await getString("annotate-pdf-done-backup", { path: r.backupPath }));

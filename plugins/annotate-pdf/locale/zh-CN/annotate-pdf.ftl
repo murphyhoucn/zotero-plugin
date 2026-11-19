@@ -22,3 +22,5 @@ annotate-pdf-error-encrypted = 该 PDF 已加密。请在 Zotero 中打开它并
 annotate-pdf-error-foreign-annotations = 文件中已存在 { $count } 条不是由本条目在 Zotero 写入的标注。为避免误删，本次未修改文件；请改用「生成副本」，或先把这些标注导入 Zotero 再试。
 annotate-pdf-done-cleaned = 已清理上次写入遗留的 { $count } 条标注
 annotate-pdf-error-generic = 写入标注失败：{ $message }
+annotate-pdf-done-adopted = 已把文件里 { $count } 条外部标注导入 Zotero（现在可编辑）
+annotate-pdf-done-trashed = 已把 { $count } 条重复的只读标注移入回收站

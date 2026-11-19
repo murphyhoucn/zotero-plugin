@@ -126,7 +126,7 @@
 		{ length: 8 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]
 	).join("");
 
-	const buildPdf = (text) => {
+	const buildPdf = (text, withForeignAnnotation = false) => {
 		const enc = (s) => new TextEncoder().encode(s);
 		const chunks = [];
 		let offset = 0;
@@ -141,17 +141,28 @@
 		offsets[2] = offset; push("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
 		offsets[3] = offset; push(
 			"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]"
-			+ " /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n");
+			+ " /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R"
+			+ (withForeignAnnotation ? " /Annots [6 0 R]" : "")
+			+ " >>\nendobj\n");
 		const stream = "BT /F1 18 Tf 72 700 Td (" + text + ") Tj ET\n";
 		offsets[4] = offset; push("4 0 obj\n<< /Length " + stream.length + " >>\nstream\n" + stream + "endstream\nendobj\n");
 		offsets[5] = offset; push("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n");
+		if (withForeignAnnotation) {
+			// An annotation as another PDF app would write it: no /Zotero:Key, no
+			// /NM starting with "Zotero-"
+			offsets[6] = offset;
+			push("6 0 obj\n<< /Type /Annot /Subtype /Highlight /Rect [100 500 300 512]"
+				+ " /QuadPoints [100 512 300 512 100 500 300 500] /C [1 0.6 0]"
+				+ " /Contents (foreign note) /F 4 >>\nendobj\n");
+		}
+		const objCount = withForeignAnnotation ? 7 : 6;
 		const xrefOffset = offset;
-		let xref = "xref\n0 6\n0000000000 65535 f \n";
-		for (let i = 1; i <= 5; i++) {
+		let xref = "xref\n0 " + objCount + "\n0000000000 65535 f \n";
+		for (let i = 1; i < objCount; i++) {
 			xref += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
 		}
 		push(xref);
-		push("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" + xrefOffset + "\n%%EOF\n");
+		push("trailer\n<< /Size " + objCount + " /Root 1 0 R >>\nstartxref\n" + xrefOffset + "\n%%EOF\n");
 		const total = chunks.reduce((n, b) => n + b.length, 0);
 		const out = new Uint8Array(total);
 		let pos = 0;
@@ -472,6 +483,65 @@
 			};
 		});
 
+		/* ---- 5d. annotations from other apps are adopted ---------------- */
+		await guard("adopt-foreign-annotations", async () => {
+			// A PDF that already carries an annotation written by another app
+			const foreignPdf = P("annotate-pdf-foreign.pdf");
+			await IOUtils.write(foreignPdf, buildPdf("Foreign test page", true));
+			created.files.push(foreignPdf);
+			const item = await Z.Attachments.importFromFile({
+				file: Z.File.pathToFile(foreignPdf),
+				libraryID: Z.Libraries.userLibraryID,
+				collections: [collection.id],
+				title: "annotate-pdf-foreign",
+			});
+			created.items.push(item.id);
+			await Z.Annotations.saveFromJSON(item, {
+				key: newKey(), type: "highlight", text: "our text", comment: "our comment",
+				color: "#ffd400", pageLabel: "1", sortIndex: "00001|000100|00240",
+				position: { pageIndex: 0, rects: [[150, 400, 350, 412]] },
+				authorName: "tester",
+			});
+			created.items.push(...item.getAnnotations().map((a) => a.id));
+
+			const write = await A.writeForAttachment(item, "overwrite");
+			const after = item.getAnnotations();
+			const embedded = await A.readEmbeddedAnnotations(await item.getFilePathAsync(), "", item.id);
+			return {
+				status: write.status,
+				adopted: write.adoptedEmbedded,
+				dbTotal: after.length,
+				dbExternal: after.filter((a) => a.annotationIsExternal).length,
+				foreignNowEditable: after.some((a) => !a.annotationIsExternal
+					&& (a.annotationComment || "") === "foreign note"),
+				ourCopies: after.filter((a) => (a.annotationComment || "") === "our comment").length,
+				embeddedCount: embedded.length,
+				foreignStillIdless: embedded.filter((a) => !a.id).length,
+			};
+		});
+
+		/* ---- 5e. read-only duplicates are trashed by a write ------------ */
+		await guard("trash-duplicate-externals", async () => {
+			// Simulate what Zotero does when the written file is opened: the
+			// embedded annotations are imported as read-only copies
+			attachment.attachmentLastProcessedModificationTime = 0;
+			await attachment.saveTx({ skipAll: true });
+			await Z.PDFWorker.import(attachment.id, true, "", false);
+			const externalsBefore = attachment.getAnnotations()
+				.filter((a) => a.annotationIsExternal).length;
+			const write = await A.writeForAttachment(attachment, "overwrite");
+			const after = attachment.getAnnotations();
+			return {
+				externalsBefore,
+				trashed: write.trashedExternalItems,
+				externalsAfter: after.filter((a) => a.annotationIsExternal).length,
+				dbTotal: after.length,
+				status: write.status,
+				clean: externalsBefore > 0 && write.trashedExternalItems === externalsBefore
+					&& after.filter((a) => a.annotationIsExternal).length === 0,
+			};
+		});
+
 		/* ---- 6. open reader on the original: no duplicate imports ------- */
 		await guard("reader-open-original", () => withTimeout((async () => {
 			const before = attachment.getAnnotations().length;
@@ -544,9 +614,17 @@
 		/* ---- 8. menu build + visibility logic -------------------------- */
 		await guard("menu-build", async () => {
 			const win = Z.getMainWindow();
-			const popup = win.document.createXULElement("menupopup");
-			const host = win.document.getElementById("mainPopupSet") || win.document.documentElement;
-			host.appendChild(popup);
+			// Use the real item menu so the plugin's own popupshowing listener runs
+			const popup = win.document.getElementById("zotero-itemmenu")
+				|| win.document.createXULElement("menupopup");
+			const attached = !popup.isConnected;
+			if (attached) {
+				(win.document.getElementById("mainPopupSet") || win.document.documentElement).appendChild(popup);
+			}
+			const findItem = () => Array.from(popup.children).find(
+				(x) => x.classList.contains("annotate-pdf-menu-item")
+					|| (x.dataset && x.dataset.l10nId === "annotate-pdf-menu")
+			);
 			const build = (items) => {
 				Z.MenuManager.updateMenuPopup(popup, "main/library/item", {
 					getContext: () => ({ items, tabType: "library", tabID: "zotero-pane" }),
@@ -554,10 +632,9 @@
 				// ZoteroPane does not pass an event, so the hooks are registered
 				// as popupshowing listeners - dispatch it to run them
 				popup.dispatchEvent(new win.CustomEvent("popupshowing"));
-				const el = Array.from(popup.children)
-					.find((x) => x.dataset && x.dataset.l10nId === "annotate-pdf-menu");
+				const el = findItem();
 				return el
-					? { tag: el.localName, hidden: !!el.hidden, disabled: !!el.disabled, l10n: el.dataset.l10nId }
+					? { tag: el.localName, hidden: !!el.hidden, disabled: !!el.disabled, l10n: el.dataset.l10nId || null }
 					: null;
 			};
 			try {
@@ -568,10 +645,22 @@
 					emptySelection: build([]),
 				};
 				results.found = !!results.pdfAttachment;
+				// the marker (glyph or icon) is applied asynchronously
+				await delay(600);
+				const el = findItem();
+				results.marker = el ? {
+					label: el.getAttribute("label"),
+					hasGlyph: !!el.getAttribute("label")
+						&& el.getAttribute("label").startsWith("🖍"),
+					iconic: el.classList.contains("menuitem-iconic"),
+					marked: el.classList.contains("annotate-pdf-menu-item"),
+				} : null;
 				return results;
 			}
 			finally {
-				popup.remove();
+				if (attached) {
+					popup.remove();
+				}
 			}
 		});
 
