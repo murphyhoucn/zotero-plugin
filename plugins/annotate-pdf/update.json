@@ -3,8 +3,8 @@
     "annotate-pdf@local": {
       "updates": [
         {
-          "version": "1.0.0",
-          "update_link": "https://github.com/murphyhoucn/zotero-plugin/releases/download/annotate-pdf-v1.0.0/annotate-pdf.xpi",
+          "version": "1.0.1",
+          "update_link": "https://github.com/murphyhoucn/zotero-plugin/releases/download/annotate-pdf-v1.0.1/annotate-pdf.xpi",
           "applications": {
             "zotero": {
               "strict_min_version": "8.0",

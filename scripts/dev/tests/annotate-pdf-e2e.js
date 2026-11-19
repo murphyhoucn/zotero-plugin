@@ -52,6 +52,66 @@
 
 	const created = { items: [], collectionID: null, files: [] };
 
+	/**
+	 * Attachment managers (e.g. Attanger) move test files into the linked
+	 * attachment base directory under a directory named after the item or
+	 * collection. Remove our files there, and the directory if it ends up empty.
+	 */
+	const cleanupTestDirs = async () => {
+		let removedDirs = 0;
+		let basePath = "";
+		try {
+			basePath = Services.prefs.getStringPref("extensions.zotero.baseAttachmentPath", "");
+		}
+		catch (e) {
+			basePath = "";
+		}
+		if (!basePath) {
+			return 0;
+		}
+		try {
+			if (!(await IOUtils.exists(basePath))) {
+				return 0;
+			}
+			for (const entry of await IOUtils.getChildren(basePath)) {
+				const dirName = PathUtils.filename(entry);
+				if (!/^AnnotatePDF (Test|Exp|Debug|btn)/.test(dirName)) {
+					continue;
+				}
+				try {
+					for (const filePath of await IOUtils.getChildren(entry)) {
+						if (/annotate-pdf-|ap-debug|ap-exp/.test(PathUtils.filename(filePath))) {
+							await IOUtils.remove(filePath, { ignoreAbsent: true });
+						}
+					}
+					if (!(await IOUtils.getChildren(entry)).length) {
+						await IOUtils.remove(entry);
+						removedDirs++;
+					}
+				}
+				catch (e) {
+					// Ignore
+				}
+			}
+		}
+		catch (e) {
+			// Ignore
+		}
+		return removedDirs;
+	};
+
+	/**
+	 * Resolve after at most `ms`, even if the wrapped promise never settles.
+	 * (Zotero.Reader.open() occasionally hangs; the test must not.)
+	 */
+	const withTimeout = (promise, ms, label) => Promise.race([
+		promise,
+		new Promise((resolve, reject) => {
+			const t = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+			t.initWithCallback(() => reject(new Error(label + ": timed out after " + ms + " ms")), ms, Ci.nsITimer.TYPE_ONE_SHOT);
+		}),
+	]);
+
 	const CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 	const newKey = () => Array.from(
 		{ length: 8 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]
@@ -105,6 +165,8 @@
 	let copyItem = null;
 	let linkedCopyPath = null;
 	let overwriteResult = null;
+	let regularItem = null;
+	let noteItem = null;
 
 	try {
 		/* ---- 0. environment --------------------------------------------- */
@@ -122,7 +184,7 @@
 				defaultAction: Services.prefs.getStringPref("extensions.zotero.annotate-pdf.defaultAction", "MISSING"),
 				outputDir: Services.prefs.getStringPref("extensions.zotero.annotate-pdf.outputDir", "MISSING"),
 				silentErrors: Services.prefs.getBoolPref("extensions.zotero.annotate-pdf.silentErrors", false),
-				l10nMenuCopy: await Z.getMainWindow().document.l10n.formatValue("annotate-pdf-menu-copy"),
+				l10nMenu: await Z.getMainWindow().document.l10n.formatValue("annotate-pdf-menu"),
 				l10nToolbarTip: await Z.getMainWindow().document.l10n.formatValue("annotate-pdf-toolbar-tip"),
 				locale: Z.locale,
 			};
@@ -166,6 +228,7 @@
 			}
 			purged.annotations = annIDs.length;
 			purged.items = itemIDs.length;
+			purged.dirs = await cleanupTestDirs();
 			return purged;
 		});
 
@@ -230,6 +293,43 @@
 			}));
 		});
 
+		/* ---- 2b. a regular item with a PDF child (the library-item case) - */
+		await guard("create-regular-item", async () => {
+			regularItem = new Z.Item("journalArticle");
+			regularItem.libraryID = Z.Libraries.userLibraryID;
+			regularItem.setField("title", "annotate-pdf-regular-test");
+			regularItem.setCollections([collection.id]);
+			await regularItem.saveTx();
+			created.items.push(regularItem.id);
+
+			const child = await Z.Attachments.importFromFile({
+				file: Z.File.pathToFile(pdfPath),
+				parentItemID: regularItem.id,
+				title: "annotate-pdf-regular-child",
+			});
+			created.items.push(child.id);
+			await Z.Annotations.saveFromJSON(child, {
+				key: newKey(), type: "highlight", text: "regular text", comment: "regular comment",
+				color: "#ffd400", pageLabel: "1", sortIndex: "00001|000100|00230",
+				position: { pageIndex: 0, rects: [[130, 540, 330, 552]] },
+				authorName: "tester",
+			});
+			created.items.push(...child.getAnnotations().map((a) => a.id));
+
+			noteItem = new Z.Item("note");
+			noteItem.libraryID = Z.Libraries.userLibraryID;
+			noteItem.setNote("<p>annotate-pdf-note-test</p>");
+			noteItem.setCollections([collection.id]);
+			await noteItem.saveTx();
+			created.items.push(noteItem.id);
+
+			return {
+				regularItemID: regularItem.id,
+				childAttachmentID: child.id,
+				noteItemID: noteItem.id,
+			};
+		});
+
 		/* ---- 3. copy mode (stored attachment -> new attachment) --------- */
 		const copy = await guard("copy-mode", () => A.writeForAttachment(attachment, "copy"));
 		if (copy && copy.itemID) {
@@ -289,9 +389,11 @@
 		});
 
 		/* ---- 6. open reader on the original: no duplicate imports ------- */
-		await guard("reader-open-original", async () => {
+		await guard("reader-open-original", () => withTimeout((async () => {
 			const before = attachment.getAnnotations().length;
+			noteProgress("  reader-open: calling Reader.open");
 			await Z.Reader.open(attachment.id, undefined, { allowDuplicate: true });
+			noteProgress("  reader-open: resolved");
 			await delay(3000);
 			const reader = (Z.Reader._readers || []).find((r) => r.itemID === attachment.id);
 			return {
@@ -299,25 +401,25 @@
 				after: attachment.getAnnotations().length,
 				readerFound: !!reader,
 			};
-		});
+		})(), 45000, "reader-open-original"));
 
 		/* ---- 7. reader toolbar button ---------------------------------- */
-		await guard("reader-toolbar-button", async () => {
+		await guard("reader-toolbar-button", () => withTimeout((async () => {
 			let reader = (Z.Reader._readers || []).find((r) => r.itemID === attachment.id);
 			if (!reader) {
+				noteProgress("  button: opening reader");
 				await Z.Reader.open(attachment.id, undefined, { allowDuplicate: true });
 			}
 			// The reader document/toolbar renders asynchronously
 			let button = null;
 			let waitMs = null;
-			for (let i = 0; i < 40; i++) {
+			for (let i = 0; i < 40 && !button; i++) {
 				await delay(500);
 				reader = (Z.Reader._readers || []).find((r) => r.itemID === attachment.id);
 				const doc = reader && reader._iframeWindow && reader._iframeWindow.document;
 				button = doc && doc.getElementById("annotate-pdf-reader-button");
 				if (button) {
 					waitMs = (i + 1) * 500;
-					break;
 				}
 			}
 			const info = { found: !!button, waitMs };
@@ -332,54 +434,116 @@
 				const countAttachments = () => collection.getChildItems()
 					.filter((i) => i.isAttachment() && !created.items.includes(i.id)).map((i) => i.id);
 				const before = countAttachments();
+				noteProgress("  button: clicking");
 				button.click();
-				await delay(4000);
-				const after = countAttachments();
-				info.newAttachments = after.filter((id) => !before.includes(id));
+				// wait for the action to produce a new attachment (bounded)
+				for (let i = 0; i < 20; i++) {
+					await delay(500);
+					const now = countAttachments();
+					if (now.some((id) => !before.includes(id))) {
+						break;
+					}
+				}
+				info.newAttachments = countAttachments().filter((id) => !before.includes(id));
 				info.clickWorked = info.newAttachments.length > 0;
 				created.items.push(...info.newAttachments);
 			}
 			return info;
-		});
+		})(), 60000, "reader-toolbar-button"));
 
-		/* ---- 8. menu popup build --------------------------------------- */
-		await guard("menu-popup-build", async () => {
+		/* ---- 8. menu build + visibility logic -------------------------- */
+		await guard("menu-build", async () => {
 			const win = Z.getMainWindow();
 			const popup = win.document.createXULElement("menupopup");
 			const host = win.document.getElementById("mainPopupSet") || win.document.documentElement;
 			host.appendChild(popup);
+			const build = (items) => {
+				Z.MenuManager.updateMenuPopup(popup, "main/library/item", {
+					getContext: () => ({ items, tabType: "library", tabID: "zotero-pane" }),
+				});
+				// ZoteroPane does not pass an event, so the hooks are registered
+				// as popupshowing listeners - dispatch it to run them
+				popup.dispatchEvent(new win.CustomEvent("popupshowing"));
+				const el = Array.from(popup.children)
+					.find((x) => x.dataset && x.dataset.l10nId === "annotate-pdf-menu");
+				return el
+					? { tag: el.localName, hidden: !!el.hidden, disabled: !!el.disabled, l10n: el.dataset.l10nId }
+					: null;
+			};
 			try {
-				Z.MenuManager.updateMenuPopup(popup, "main/library/item", {});
-				const dump = (node, depth) => Array.from(node.children).map((el) => ({
-					tag: el.localName,
-					id: el.id || null,
-					l10n: (el.dataset && el.dataset.l10nId) || null,
-					hidden: el.hidden === true ? true : undefined,
-					disabled: el.disabled === true ? true : undefined,
-					children: depth < 2 ? dump(el, depth + 1) : undefined,
-				}));
-				const tree = dump(popup, 0);
-				// Submenu children are built lazily on popupshowing (MenuManager)
-				let submenuChildren = null;
-				const submenu = Array.from(popup.children).find(
-					(el) => el.dataset && el.dataset.l10nId === "annotate-pdf-menu"
-				);
-				if (submenu) {
-					const subPopup = submenu.querySelector("menupopup");
-					if (subPopup) {
-						subPopup.dispatchEvent(new win.CustomEvent("popupshowing"));
-						submenuChildren = dump(subPopup, 0);
-					}
-				}
-				return {
-					found: JSON.stringify(tree).includes("annotate-pdf-menu"),
-					tree,
-					submenuChildren,
+				const results = {
+					pdfAttachment: build([attachment]),
+					regularItemWithPDF: regularItem ? build([regularItem]) : "no regular item",
+					nonPDFItem: noteItem ? build([noteItem]) : "no non-PDF item",
+					emptySelection: build([]),
 				};
+				results.found = !!results.pdfAttachment;
+				return results;
 			}
 			finally {
 				popup.remove();
 			}
+		});
+
+		/* ---- 8b. regular item expansion + write ------------------------ */
+		await guard("regular-item-expansion", () => {
+			if (!regularItem) {
+				throw new Error("no regular item");
+			}
+			const expanded = A.expandToPDFAttachments([regularItem]);
+			return {
+				expandedCount: expanded.length,
+				expandedIsChild: expanded.length === 1 && expanded[0].parentID === regularItem.id,
+			};
+		});
+		await guard("regular-item-write", async () => {
+			if (!regularItem) {
+				throw new Error("no regular item");
+			}
+			const childIDs = regularItem.getAttachments();
+			const child = Z.Items.get(childIDs[0]);
+			const linkMode = child.attachmentLinkMode;
+			const isLinked = linkMode === Z.Attachments.LINK_MODE_LINKED_FILE;
+			const srcPath = await child.getFilePathAsync();
+
+			const results = await A.runAction("copy", [regularItem]);
+			const raw = results.map((r) => ({
+				status: r.status, mode: r.mode, count: r.count, itemID: r.itemID, path: r.path,
+			}));
+			for (const r of results) {
+				if (r.status === "ok" && r.path) {
+					created.files.push(r.path);
+				}
+			}
+			const newIDs = results.filter((r) => r.status === "ok" && r.itemID).map((r) => r.itemID);
+			created.items.push(...newIDs);
+			const copyItem = newIDs.length ? Z.Items.get(newIDs[0]) : null;
+
+			// An attachment manager (e.g. Attanger) may turn the imported child into
+			// a linked file; in that case the copy is written next to the source.
+			const branch = isLinked
+				? {
+					linkedFileBranch: true,
+					copyNextToSource: results[0] && results[0].path
+						? PathUtils.parent(results[0].path) === PathUtils.parent(srcPath)
+						: null,
+					copyFileExists: results[0] && results[0].path
+						? await IOUtils.exists(results[0].path)
+						: null,
+				}
+				: {
+					linkedFileBranch: false,
+					createdCopy: !!copyItem,
+					copyIsChildOfRegularItem: copyItem ? copyItem.parentID === regularItem.id : null,
+					copyIsPDF: copyItem ? copyItem.isPDFAttachment() : null,
+					hasAnnotations: copyItem ? await Z.PDFWorker.hasAnnotations(copyItem.id) : null,
+				};
+			return {
+				linkMode,
+				statuses: results.map((r) => r.status),
+				raw,
+				...branch,
+			};
 		});
 
 		/* ---- 9. linked file copy -------------------------------------- */
@@ -484,6 +648,10 @@
 			for (const path of created.files) {
 				await IOUtils.remove(path, { ignoreAbsent: true }).catch(() => {});
 			}
+			// Attachment managers (e.g. Attanger) move test files into the linked
+			// attachment base directory under a directory named after the item or
+			// collection. Remove our files there and the directory if it is empty.
+			const removedDirs = await cleanupTestDirs();
 			try {
 				Services.prefs.clearUserPref("extensions.zotero.annotate-pdf.silentErrors");
 			}
@@ -494,6 +662,7 @@
 				erasedAnnotations: annotationIDs.length,
 				erasedItems: itemIDs.length,
 				removedFiles: created.files.length,
+				removedDirs,
 			};
 		});
 	}

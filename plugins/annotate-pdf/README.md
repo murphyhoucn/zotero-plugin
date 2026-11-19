@@ -21,21 +21,23 @@ This plugin adds exactly that: two entry points and three write modes.
 
 ## Features
 
-- **Item context menu** — select one or more PDF attachments in the library,
-  right-click, then choose under **Write Annotations to PDF**:
-  - **Save Annotated Copy** — keeps the original untouched. Linked files get a
+- **Item context menu** — select a paper (or one or more of its PDF attachments)
+  in the library and choose **Write Annotations to PDF**. A regular item is
+  expanded to its PDF attachments automatically, so the entry works on the paper
+  itself, not only on the file row. What it does is decided by the
+  `defaultAction` preference (default: *Save Annotated Copy*):
+  - **copy** — keeps the original untouched. Linked files get a
     `<name> (annotated).pdf` next to the original; files stored in Zotero get an
     annotated copy imported as a new attachment of the same item.
-  - **Overwrite Original PDF…** — writes the annotations into the file itself.
-    A backup named `<name>.bak.pdf` is created first. (Zotero removed this
-    capability in Zotero 6 because it can cause sync conflicts — see
-    *Caveats* below.)
-  - **Save As…** — save to a location you pick.
-- **PDF reader toolbar button** — next to the toolbar in the PDF reader; runs the
-  action selected by the `defaultAction` preference (default: *Save Annotated
-  Copy*).
-- **Batch** — the copy/overwrite actions accept a multi-selection and report one
-  summary.
+  - **overwrite** — writes the annotations into the file itself. A backup named
+    `<name>.bak.pdf` is created first. (Zotero removed this capability in
+    Zotero 6 because it can cause sync conflicts — see *Caveats* below.)
+  - **saveas** — save to a location you pick.
+  - **ask** — a small dialog lets you choose between copy and overwrite each time.
+- **PDF reader toolbar button** — in the PDF reader's toolbar; runs the same
+  `defaultAction`.
+- **Batch** — multi-selection is written one file after another with a single
+  summary at the end.
 
 The annotations are written as **real PDF annotation objects** (highlight /
 underline / sticky note / ink / image / text), with appearance streams and the
@@ -59,8 +61,9 @@ selectable, they show up in the comments pane, and Zotero can import them again.
 
 | Preference | Values | Default | Meaning |
 |---|---|---|---|
-| `extensions.zotero.annotate-pdf.defaultAction` | `copy` \| `overwrite` \| `ask` | `copy` | Action used by the reader toolbar button (and to preselect behaviour). |
-| `extensions.zotero.annotate-pdf.outputDir` | path | *(empty)* | If set, *Save Annotated Copy* always writes `<outputDir>/<name> (annotated).pdf` instead of the per-attachment defaults. |
+| `extensions.zotero.annotate-pdf.defaultAction` | `copy` \| `overwrite` \| `saveas` \| `ask` | `copy` | What the menu entry and the reader button do. |
+| `extensions.zotero.annotate-pdf.outputDir` | path | *(empty)* | If set, *copy* always writes `<outputDir>/<name> (annotated).pdf` instead of the per-attachment defaults. |
+| `extensions.zotero.annotate-pdf.confirmOverwrite` | `true` \| `false` | `true` | Ask for confirmation before writing into the original file. Set to `false` for a one-click overwrite workflow. |
 | `extensions.zotero.annotate-pdf.silentErrors` | `true` \| `false` | `false` | Suppress the modal error alert (for scripted/automated use). |
 
 Set them in **Settings → Advanced → Config Editor** (search for `annotate-pdf`).
@@ -100,10 +103,13 @@ Set them in **Settings → Advanced → Config Editor** (search for `annotate-pd
 
 ## Caveats
 
-- **Overwrite** modifies the stored/linked file. For synced libraries this
-  triggers a file re-upload, and Zotero deliberately removed this feature in
-  Zotero 6 for that reason. This plugin keeps the database annotations, creates a
-  `.bak.pdf` first, and asks for confirmation — but the risk is on you.
+- **Overwrite** modifies the file on disk. For **linked** attachments (files in
+  your own folder) this has **no sync consequences** — Zotero never uploads
+  linked files, it only syncs the link. For files *stored* in Zotero it triggers
+  a file re-upload when file sync is on, which is why Zotero removed the feature
+  in Zotero 6. In both cases the plugin keeps the database annotations, creates a
+  `<name>.bak.pdf` next to the file first, and (by default) asks for
+  confirmation — the risk stays with you.
 - An annotated **copy** opened in Zotero shows the embedded annotations as
   *external* (read-only, with a lock icon). That is normal Zotero behaviour for
   annotations stored in the file; the database of the copy gets its own items.
@@ -157,14 +163,16 @@ Zotero 的标注保存在数据库里而不是 PDF 里（官方出于同步性�
 
 ### 功能
 
-- **条目右键菜单**（可多选 PDF 附件）→ **写入标注到 PDF**：
-  - **生成「标注版」副本**：原文件不动。链接的 PDF 会在同目录生成
-    `<文件名> (annotated).pdf`；Zotero 库内存储的 PDF 会作为同一条目下的新附件导入。
-  - **覆盖原 PDF 文件…**：把标注直接写进原文件；写前自动备份 `<文件名>.bak.pdf`。
-    （Zotero 6 时代因同步冲突风险移除了该能力，见下方注意事项。）
-  - **另存为…**：自己选保存位置。
-- **阅读器工具栏按钮**：PDF 阅读器顶栏一键执行默认动作（默认「生成副本」，可在设置里改）。
-- **批量**：副本/覆盖支持多选，完成后给一份汇总。
+- **条目右键菜单**：选中「条目」（论文）或它下面的 PDF 附件，右键 → **写入标注到 PDF**。
+  选中条目时会自动找到它的 PDF 附件，所以**在论文条目上也能直接写入**。具体行为由偏好
+  `defaultAction` 决定（默认「生成副本」）：
+  - **copy（生成「标注版」副本）**：原文件不动。链接的 PDF 在同目录生成
+    `<文件名> (annotated).pdf`；Zotero 库内存储的 PDF 作为同一条目下的新附件导入。
+  - **overwrite（覆盖原文件）**：把标注直接写进原文件；写前自动备份 `<文件名>.bak.pdf`。
+  - **saveas（另存为）**：自己选保存位置。
+  - **ask**：每次弹一个小对话框让你选「生成副本 / 覆盖原文件」。
+- **阅读器工具栏按钮**：PDF 阅读器顶栏一键执行同一个 `defaultAction`。
+- **批量**：可多选，逐个写入，完成后给一份汇总。
 
 写入的是**标准 PDF 注释对象**（高亮/下划线/便签/墨迹等），带外观流和与 Zotero
 官方导出相同的 `/Zotero:*` 回传键——可以在别的阅读器里正常显示、放进批注列表，
@@ -180,8 +188,9 @@ Zotero 的标注保存在数据库里而不是 PDF 里（官方出于同步性�
 
 | 偏好 | 取值 | 默认 | 说明 |
 |---|---|---|---|
-| `extensions.zotero.annotate-pdf.defaultAction` | `copy` / `overwrite` / `ask` | `copy` | 阅读器按钮执行的默认动作 |
-| `extensions.zotero.annotate-pdf.outputDir` | 目录路径 | 空 | 若设置，生成的副本一律写到该目录 |
+| `extensions.zotero.annotate-pdf.defaultAction` | `copy` / `overwrite` / `saveas` / `ask` | `copy` | 菜单项与阅读器按钮执行的动作 |
+| `extensions.zotero.annotate-pdf.outputDir` | 目录路径 | 空 | 若设置，`copy` 一律写到该目录 |
+| `extensions.zotero.annotate-pdf.confirmOverwrite` | `true`/`false` | `true` | 覆盖原文件前是否弹确认框；设为 `false` 就是"一键覆盖" |
 | `extensions.zotero.annotate-pdf.silentErrors` | `true`/`false` | `false` | 静默错误弹窗（脚本化使用） |
 
 ### 可逆性与显示（重要）
@@ -200,9 +209,11 @@ Zotero 的标注保存在数据库里而不是 PDF 里（官方出于同步性�
 
 ### 注意事项
 
-- **覆盖原文件**会真实修改磁盘上的文件：如果该文件在 Zotero 云同步中，会触发重新上传
-  （这正是官方当年移除该功能的原因）。插件会保留数据库标注、先做 `.bak.pdf` 备份、
-  并在执行前弹确认框，但请自行评估风险。
+- **覆盖原文件**会真实修改磁盘上的文件。对**链接附件**（PDF 在你自己的文件夹里，
+  例如 `baseAttachmentPath` 指向的目录）**没有同步影响**——Zotero 从不上传链接文件，
+  只同步链接本身；只有"库内存储"的 PDF 在开启文件同步时会重新上传（这正是官方当年
+  移除该功能的原因）。两种情况下插件都会保留数据库标注、先在文件旁生成
+  `<文件名>.bak.pdf` 备份、默认弹一次确认框——风险请自行评估。
 - 生成的**副本**用 Zotero 打开时，文件里的标注会显示为「外部（只读）」并带锁形图标，
   这是 Zotero 的正常设计。
 - 中文的**文字批注（text 类型）**在外部阅读器可能没有外观流（Zotero 写入器只嵌入拉丁字体）；

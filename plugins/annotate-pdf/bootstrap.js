@@ -65,8 +65,8 @@ const FALLBACK_STRINGS = {
 	],
 	"annotate-pdf-confirm-overwrite-title": ["Overwrite the original PDF?", "覆盖原 PDF 文件？"],
 	"annotate-pdf-confirm-overwrite-text": [
-		"The annotations will be written directly into { $count } PDF file(s). A backup named \"<name>.bak.pdf\" is created first, and files under Zotero sync will be re-uploaded. Continue?",
-		"将把标注直接写入 { $count } 个 PDF 文件（写前自动备份为「文件名.bak.pdf」；若文件在 Zotero 云同步中会重新上传）。是否继续？",
+		"The annotations will be written directly into { $count } PDF file(s). A backup named \"<name>.bak.pdf\" is created first. Zotero-stored files may be re-uploaded if file sync is on; linked files are never uploaded. Continue?",
+		"将把标注直接写入 { $count } 个 PDF 文件（写前自动备份为「文件名.bak.pdf」；库内存储的文件若在文件同步中会重新上传，链接文件不受影响）。是否继续？",
 	],
 	"annotate-pdf-ask-title": ["Write annotations to PDF", "写入标注到 PDF"],
 	"annotate-pdf-ask-text": [
@@ -94,7 +94,9 @@ var AnnotatePDF = {
 	writeSaveAs,
 	runAction,
 	runActionForItem,
+	selectedItems,
 	selectedPDFAttachments,
+	expandToPDFAttachments,
 	annotationCount,
 	annotatedBaseName,
 	uniqueFilePath,
@@ -359,6 +361,8 @@ function registerPrefDefaults() {
 		const defaults = Services.prefs.getDefaultBranch(PREF_PREFIX);
 		defaults.setStringPref("defaultAction", "copy");
 		defaults.setStringPref("outputDir", "");
+		// Ask before writing into the original file
+		defaults.setBoolPref("confirmOverwrite", true);
 		// Suppress modal error alerts (for scripted/automated use)
 		defaults.setBoolPref("silentErrors", false);
 	}
@@ -376,10 +380,19 @@ function isSilentErrors() {
 	}
 }
 
+function isConfirmOverwrite() {
+	try {
+		return Services.prefs.getBoolPref(PREF_PREFIX + "confirmOverwrite", true);
+	}
+	catch (e) {
+		return true;
+	}
+}
+
 function getDefaultAction() {
 	try {
 		const value = Services.prefs.getStringPref(PREF_PREFIX + "defaultAction", "copy");
-		return ["copy", "overwrite", "ask"].includes(value) ? value : "copy";
+		return ["copy", "overwrite", "saveas", "ask"].includes(value) ? value : "copy";
 	}
 	catch (e) {
 		return "copy";
@@ -408,19 +421,62 @@ function isPDFAttachment(item) {
 	}
 }
 
-function selectedPDFAttachments() {
+function selectedItems() {
 	try {
 		let pane = typeof Zotero.getActiveZoteroPane === "function" ? Zotero.getActiveZoteroPane() : null;
 		if (!pane) {
 			pane = Zotero.getMainWindow()?.ZoteroPane;
 		}
-		const items = pane?.getSelectedItems ? pane.getSelectedItems() : [];
-		return items.filter(isPDFAttachment);
+		return pane?.getSelectedItems ? pane.getSelectedItems() : [];
 	}
 	catch (e) {
 		Zotero.logError(e);
 		return [];
 	}
+}
+
+/**
+ * Expand a selection to the PDF attachments it refers to: PDF attachments
+ * themselves, plus the PDF children of selected regular items (a paper in the
+ * library with a PDF attached).
+ *
+ * @param {Zotero.Item[]} items
+ * @return {Zotero.Item[]}
+ */
+function expandToPDFAttachments(items) {
+	const result = [];
+	const seen = new Set();
+	for (const item of items || []) {
+		if (!item || item.deleted) {
+			continue;
+		}
+		if (isPDFAttachment(item)) {
+			if (!seen.has(item.id)) {
+				seen.add(item.id);
+				result.push(item);
+			}
+			continue;
+		}
+		let childIDs = [];
+		try {
+			childIDs = item.getAttachments ? item.getAttachments() : [];
+		}
+		catch (e) {
+			childIDs = [];
+		}
+		for (const id of childIDs) {
+			const child = Zotero.Items.get(id);
+			if (isPDFAttachment(child) && !seen.has(child.id)) {
+				seen.add(child.id);
+				result.push(child);
+			}
+		}
+	}
+	return result;
+}
+
+function selectedPDFAttachments() {
+	return expandToPDFAttachments(selectedItems());
 }
 
 function annotationCount(item) {
@@ -480,31 +536,15 @@ function registerMenus() {
 			target: "main/library/item",
 			menus: [
 				{
-					menuType: "submenu",
+					menuType: "menuitem",
 					l10nID: "annotate-pdf-menu",
 					icon: `chrome://${ADDON_REF}/content/icons/menu.svg`,
 					darkIcon: `chrome://${ADDON_REF}/content/icons/menu.svg`,
-					onShowing: (event, context) => onMenuShowing(context, null),
-					menus: [
-						{
-							menuType: "menuitem",
-							l10nID: "annotate-pdf-menu-copy",
-							onShowing: (event, context) => onMenuShowing(context, "copy"),
-							onCommand: () => runAction("copy"),
-						},
-						{
-							menuType: "menuitem",
-							l10nID: "annotate-pdf-menu-overwrite",
-							onShowing: (event, context) => onMenuShowing(context, "overwrite"),
-							onCommand: () => runAction("overwrite"),
-						},
-						{
-							menuType: "menuitem",
-							l10nID: "annotate-pdf-menu-saveas",
-							onShowing: (event, context) => onMenuShowing(context, "saveas"),
-							onCommand: () => runAction("saveas"),
-						},
-					],
+					// ZoteroPane does not pass an event to updateMenuPopup(), so
+					// this hook is registered as a popupshowing listener and only
+					// runs from the second time the menu is opened.
+					onShowing: (event, context) => onMenuShowing(context),
+					onCommand: () => runAction(null),
 				},
 			],
 		});
@@ -515,16 +555,12 @@ function registerMenus() {
 	}
 }
 
-function onMenuShowing(context, mode) {
+function onMenuShowing(context) {
 	try {
-		const items = selectedPDFAttachments();
-		if (!items.length) {
-			context.setVisible(false);
-			return;
-		}
-		context.setVisible(true);
-		// "Save As…" opens one dialog per item, so it is single-selection only
-		context.setEnabled(mode === "saveas" ? items.length === 1 : true);
+		// ZoteroPane passes the selected items in the menu context; fall back to
+		// the live selection for other callers.
+		const items = (context && Array.isArray(context.items)) ? context.items : selectedItems();
+		context.setVisible(expandToPDFAttachments(items).length > 0);
 	}
 	catch (e) {
 		Zotero.logError(e);
@@ -607,21 +643,28 @@ function registerReaderToolbar() {
 /* ------------------------------------------------------------------ */
 
 /**
- * @param {String} mode - "copy" | "overwrite" | "saveas" | "ask"
+ * @param {String} [mode] - "copy" | "overwrite" | "saveas" | "ask"; when omitted
+ *   (or falsy) the default-action preference decides
  * @param {Zotero.Item[]} [items] - defaults to the current selection
  * @return {Promise<Object[]>} per-item results
  */
 async function runAction(mode, items) {
 	const win = Zotero.getMainWindow();
 	try {
-		items = (items || selectedPDFAttachments()).filter(isPDFAttachment);
+		const explicit = Array.isArray(items);
+		items = expandToPDFAttachments(items || selectedItems());
 		if (!items.length) {
-			Services.prompt.alert(
-				win,
-				await getString("annotate-pdf-alert-title"),
-				await getString("annotate-pdf-selection-empty")
-			);
+			if (explicit) {
+				Services.prompt.alert(
+					win,
+					await getString("annotate-pdf-alert-title"),
+					await getString("annotate-pdf-selection-empty")
+				);
+			}
 			return [];
+		}
+		if (!mode) {
+			mode = getDefaultAction();
 		}
 		if (mode === "ask") {
 			mode = await askForMode();
@@ -659,17 +702,10 @@ async function runAction(mode, items) {
 }
 
 /**
- * Default action used by the reader toolbar button.
+ * Entry point for the reader toolbar button: uses the default action.
  */
 async function runActionForItem(item) {
-	let mode = getDefaultAction();
-	if (mode === "ask") {
-		mode = await askForMode();
-	}
-	if (!mode) {
-		return [];
-	}
-	return runAction(mode, [item]);
+	return runAction(null, [item]);
 }
 
 /**
@@ -896,6 +932,9 @@ async function pickSavePath(srcPath) {
 }
 
 async function confirmOverwrite(count) {
+	if (!isConfirmOverwrite()) {
+		return true;
+	}
 	const win = Zotero.getMainWindow();
 	return Services.prompt.confirm(
 		win,

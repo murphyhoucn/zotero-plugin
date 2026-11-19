@@ -1,6 +1,4 @@
 annotate-pdf-menu = Write Annotations to PDF
-annotate-pdf-menu-copy = Save Annotated Copy
-annotate-pdf-menu-overwrite = Overwrite Original PDF…
 annotate-pdf-menu-saveas = Save As…
 annotate-pdf-toolbar-tip = Write annotations to PDF
 
@@ -13,7 +11,7 @@ annotate-pdf-done-backup = Backup saved as { $path }
 annotate-pdf-no-annotations = Skipped "{ $title }": no annotations
 annotate-pdf-no-file = "{ $title }": PDF file not found
 annotate-pdf-confirm-overwrite-title = Overwrite the original PDF?
-annotate-pdf-confirm-overwrite-text = The annotations will be written directly into { $count } PDF file(s). A backup named "<name>.bak.pdf" is created first, and files under Zotero sync will be re-uploaded. Continue?
+annotate-pdf-confirm-overwrite-text = The annotations will be written directly into { $count } PDF file(s). A backup named "<name>.bak.pdf" is created first. Zotero-stored files may be re-uploaded if file sync is on; linked files are never uploaded. Continue?
 annotate-pdf-ask-title = Write annotations to PDF
 annotate-pdf-ask-text = How should the annotations be written into the file?
 annotate-pdf-ask-copy = Save Annotated Copy

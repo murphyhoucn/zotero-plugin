@@ -1,6 +1,4 @@
 annotate-pdf-menu = 写入标注到 PDF
-annotate-pdf-menu-copy = 生成「标注版」副本
-annotate-pdf-menu-overwrite = 覆盖原 PDF 文件…
 annotate-pdf-menu-saveas = 另存为…
 annotate-pdf-toolbar-tip = 写入标注到 PDF
 
@@ -13,7 +11,7 @@ annotate-pdf-done-backup = 备份：{ $path }
 annotate-pdf-no-annotations = 已跳过「{ $title }」：没有标注
 annotate-pdf-no-file = 「{ $title }」：找不到 PDF 文件
 annotate-pdf-confirm-overwrite-title = 覆盖原 PDF 文件？
-annotate-pdf-confirm-overwrite-text = 将把标注直接写入 { $count } 个 PDF 文件（写前自动备份为「文件名.bak.pdf」；若文件在 Zotero 云同步中会重新上传）。是否继续？
+annotate-pdf-confirm-overwrite-text = 将把标注直接写入 { $count } 个 PDF 文件（写前自动备份为「文件名.bak.pdf」；库内存储的文件若在文件同步中会重新上传，链接文件不受影响）。是否继续？
 annotate-pdf-ask-title = 写入标注到 PDF
 annotate-pdf-ask-text = 选择写入方式：
 annotate-pdf-ask-copy = 生成副本

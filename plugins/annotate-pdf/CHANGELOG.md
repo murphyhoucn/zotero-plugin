@@ -3,6 +3,29 @@
 All notable changes to the **Annotate PDF** plugin are documented here.
 This project uses semantic versioning; release tags are `annotate-pdf-v<version>`.
 
+### Changed
+- New preference `confirmOverwrite` (default `true`): set it to `false` to skip
+  the confirmation prompt for *overwrite* (one-click in-place writing).
+- The overwrite confirmation text now states that linked files are never uploaded
+  (no sync consequences), while Zotero-stored files may be re-uploaded.
+
+## [1.0.1] — 2026-11-19
+
+### Fixed
+- **The context-menu entry now works on library items.** It appears when the
+  selection contains a PDF attachment *or* a regular item that has a PDF
+  attached; the write then applies to that item's PDF attachments. Previously
+  only PDF attachment rows were accepted.
+- **Replaced the context-menu submenu with a single entry.** Zotero builds the
+  item menu without an `event`, so the plugin's show/hide hook is registered as a
+  `popupshowing` listener and only runs from the second open; the submenu could
+  therefore show up disabled and would not expand. The entry is now one plain
+  item (**Write Annotations to PDF**) that runs the `defaultAction` preference
+  (`copy` / `overwrite` / `saveas` / `ask`), the same as the reader toolbar
+  button. The per-mode FTL strings were removed.
+- When invoked from the context menu with nothing to write, the plugin stays
+  silent instead of showing a "select a PDF attachment" alert.
+
 ## [1.0.0] — 2026-11-19
 
 First public release.
