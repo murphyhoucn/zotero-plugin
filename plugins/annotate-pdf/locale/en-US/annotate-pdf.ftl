@@ -1,0 +1,23 @@
+annotate-pdf-menu = Write Annotations to PDF
+annotate-pdf-menu-copy = Save Annotated Copy
+annotate-pdf-menu-overwrite = Overwrite Original PDF…
+annotate-pdf-menu-saveas = Save As…
+annotate-pdf-toolbar-tip = Write annotations to PDF
+
+annotate-pdf-alert-title = Annotate PDF
+annotate-pdf-selection-empty = Select one or more PDF attachments first.
+annotate-pdf-done-headline = Annotations written to the PDF
+annotate-pdf-done-copy = Saved annotated copy:
+annotate-pdf-done-overwrite = Updated original file:
+annotate-pdf-done-backup = Backup saved as { $path }
+annotate-pdf-no-annotations = Skipped "{ $title }": no annotations
+annotate-pdf-no-file = "{ $title }": PDF file not found
+annotate-pdf-confirm-overwrite-title = Overwrite the original PDF?
+annotate-pdf-confirm-overwrite-text = The annotations will be written directly into { $count } PDF file(s). A backup named "<name>.bak.pdf" is created first, and files under Zotero sync will be re-uploaded. Continue?
+annotate-pdf-ask-title = Write annotations to PDF
+annotate-pdf-ask-text = How should the annotations be written into the file?
+annotate-pdf-ask-copy = Save Annotated Copy
+annotate-pdf-ask-overwrite = Overwrite Original
+annotate-pdf-error-title = Annotate PDF: error
+annotate-pdf-error-encrypted = The PDF is encrypted. Open it once in Zotero (and enter its password), then try again.
+annotate-pdf-error-generic = Failed to write annotations: { $message }

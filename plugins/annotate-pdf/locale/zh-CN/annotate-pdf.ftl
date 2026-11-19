@@ -1,0 +1,23 @@
+annotate-pdf-menu = 写入标注到 PDF
+annotate-pdf-menu-copy = 生成「标注版」副本
+annotate-pdf-menu-overwrite = 覆盖原 PDF 文件…
+annotate-pdf-menu-saveas = 另存为…
+annotate-pdf-toolbar-tip = 写入标注到 PDF
+
+annotate-pdf-alert-title = 标注写入 PDF
+annotate-pdf-selection-empty = 请先选择一个或多个 PDF 附件。
+annotate-pdf-done-headline = 标注已写入 PDF
+annotate-pdf-done-copy = 已生成标注版副本：
+annotate-pdf-done-overwrite = 已写回原文件：
+annotate-pdf-done-backup = 备份：{ $path }
+annotate-pdf-no-annotations = 已跳过「{ $title }」：没有标注
+annotate-pdf-no-file = 「{ $title }」：找不到 PDF 文件
+annotate-pdf-confirm-overwrite-title = 覆盖原 PDF 文件？
+annotate-pdf-confirm-overwrite-text = 将把标注直接写入 { $count } 个 PDF 文件（写前自动备份为「文件名.bak.pdf」；若文件在 Zotero 云同步中会重新上传）。是否继续？
+annotate-pdf-ask-title = 写入标注到 PDF
+annotate-pdf-ask-text = 选择写入方式：
+annotate-pdf-ask-copy = 生成副本
+annotate-pdf-ask-overwrite = 覆盖原文件
+annotate-pdf-error-title = 标注写入失败
+annotate-pdf-error-encrypted = 该 PDF 已加密。请在 Zotero 中打开它并输入密码后重试。
+annotate-pdf-error-generic = 写入标注失败：{ $message }
