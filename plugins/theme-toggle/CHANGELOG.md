@@ -3,6 +3,22 @@
 All notable changes to the **Theme Toggle** plugin are documented here.
 This project uses semantic versioning; release tags are `theme-toggle-v<version>`.
 
+## [1.1.4] — 2026-11-19
+
+### Removed
+- **Tools menu entry removed.** The plugin now has exactly two triggers: the
+  toolbar button and `Ctrl/Cmd+Shift+D`. The menu item's icon never rendered
+  reliably in Zotero 10's dark menu, and the extra entry point was not needed.
+
+### Changed
+- Manifest description, README and menu-related FTL strings updated accordingly.
+
+## [1.1.3] — 2026-11-19
+
+### Changed
+- **Logo refined**: the diagonal `/` is thinner (stroke `1.0`) and 50 %
+  transparent; sun and moon are slightly larger while keeping comfortable spacing.
+
 ## [1.1.2] — 2026-11-19
 
 ### Changed

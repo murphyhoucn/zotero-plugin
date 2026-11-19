@@ -10,7 +10,7 @@ services, no telemetry.
 
 | Plugin | What it does | Version | Download |
 |---|---|---|---|
-| [Theme Toggle](plugins/theme-toggle) | Switch Zotero's native light/dark color scheme from a toolbar button, `Ctrl/Cmd+Shift+D`, or the Tools menu — instantly, no restart. | 1.1.3 | [theme-toggle.xpi](https://github.com/murphyhoucn/zotero-plugin/releases/download/theme-toggle-v1.1.3/theme-toggle.xpi) |
+| [Theme Toggle](plugins/theme-toggle) | Switch Zotero's native light/dark color scheme from a toolbar button or `Ctrl/Cmd+Shift+D` — instantly, no restart. | 1.1.4 | [theme-toggle.xpi](https://github.com/murphyhoucn/zotero-plugin/releases/download/theme-toggle-v1.1.4/theme-toggle.xpi) |
 
 ## Install a plugin
 
@@ -73,7 +73,7 @@ The script builds each `plugins/<name>` into `dist/<name>-<version>.xpi`.
 当前包含：
 
 - **[Theme Toggle](plugins/theme-toggle)**：一键切换 Zotero 原生深色/浅色配色
-  （工具栏按钮 / `Ctrl+Shift+D` / 工具菜单），立即生效、无需重启。
+  （工具栏按钮 / `Ctrl+Shift+D`），立即生效、无需重启。
 
 安装方法：从 [Releases](https://github.com/murphyhoucn/zotero-plugin/releases) 下载 `.xpi`，
 在 Zotero 里打开 **工具 → 插件 → 齿轮 → Install Plugin From File…** 选择该文件即可，无需重启。

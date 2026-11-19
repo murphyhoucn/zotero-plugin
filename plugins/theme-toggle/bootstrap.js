@@ -1,8 +1,8 @@
 /*
  * Theme Toggle for Zotero
  *
- * Adds a toolbar button, a keyboard shortcut (Ctrl/Cmd+Shift+D) and a Tools
- * menu item that switch Zotero's native color scheme between light and dark.
+ * Adds a toolbar button and a keyboard shortcut (Ctrl/Cmd+Shift+D) that switch
+ * Zotero's native color scheme between light and dark.
  *
  * The native setting under Settings -> General -> Color Scheme is backed by
  * the Gecko preference `browser.theme.toolbar-theme`:
@@ -19,7 +19,6 @@ const ADDON_REF = "theme-toggle";
 const PREF = "browser.theme.toolbar-theme";
 const BUTTON_ID = "zotero-tb-theme-toggle";
 const KEY_ID = "key_zotero-theme-toggle";
-const MENU_ID = "theme-toggle-tools-menu";
 const FTL_FILE = "theme-toggle.ftl";
 
 async function startup({ id, version, resourceURI, rootURI }, reason) {
@@ -41,31 +40,6 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
 	}
 	catch (e) {
 		// Ignore
-	}
-
-	try {
-		Zotero.MenuManager.registerMenu({
-			menuID: MENU_ID,
-			pluginID: id,
-			target: "main/menubar/tools",
-			menus: [
-				{
-					menuType: "menuitem",
-					l10nID: "theme-toggle-menu-label",
-					icon: `chrome://${ADDON_REF}/content/icons/logo.svg`,
-					darkIcon: `chrome://${ADDON_REF}/content/icons/logo.svg`,
-					onCommand: (event, context) => {
-						let win = context?.menuElem?.ownerGlobal
-							|| event?.target?.ownerGlobal
-							|| Zotero.getMainWindow();
-						toggleTheme(win);
-					}
-				}
-			]
-		});
-	}
-	catch (e) {
-		Zotero.logError(e);
 	}
 
 	prefObserver = {
@@ -113,13 +87,6 @@ async function shutdown({ id, version, resourceURI, rootURI }, reason) {
 			// Ignore
 		}
 		prefObserver = null;
-	}
-
-	try {
-		Zotero.MenuManager.unregisterMenu(MENU_ID);
-	}
-	catch (e) {
-		// Ignore
 	}
 
 	for (let win of Zotero.getMainWindows()) {

@@ -14,9 +14,8 @@ Preview of the logo at different sizes: [`docs/images/theme-toggle-logo-preview.
 
 - **Toolbar button** — a sun/moon icon in the top toolbar, just left of the sync button.
 - **Keyboard shortcut** — `Ctrl+Shift+D` (macOS: `Cmd+Shift+D`).
-- **Tools menu item** — Tools → Toggle Light/Dark Mode.
 
-Each trigger switches to the opposite explicit mode. No third-party themes are
+Both triggers switch to the opposite explicit mode. No third-party themes are
 installed: the plugin only writes Zotero's own color-scheme preference
 (`browser.theme.toolbar-theme`: `0` = Dark, `1` = Light, `2` = Follow system), so the
 result is identical to picking Light/Dark in **Settings → General → Color Scheme** —
@@ -44,7 +43,6 @@ setting is left in whatever state it was in.
 | Instant apply | Gecko registers this pref for a full theme refresh, so the UI repaints as soon as it changes |
 | Toolbar button | Injected into `#zotero-tabs-toolbar`, styled with Zotero's own `.zotero-tb-button` class and `context-fill` SVG icons |
 | Shortcut | Capture-phase `keydown` listener on the main window (`Ctrl/Cmd+Shift+D`) |
-| Menu item | Registered through Zotero 8's `Zotero.MenuManager` (`main/menubar/tools`) |
 | Localization | `locale/en-US`, `locale/zh-CN` (`.ftl`), loaded with `MozXULElement.insertFTLIfNeeded()` |
 | Updates | `update_url` → `update.json` in this repository |
 
@@ -78,11 +76,10 @@ Build from the repository root with `./scripts/build.sh`; the result is
 ## 中文说明
 
 一个极小的 Zotero 插件：把「设置 → 通用 → 颜色方案」里的 Light/Dark 切换搬到外面，
-提供三种入口：
+提供两种入口：
 
 - 顶部标签栏右侧的**工具栏按钮**（月亮/太阳图标，位置在同步按钮左边）
 - 快捷键 **Ctrl+Shift+D**（macOS 为 Cmd+Shift+D）
-- **工具（Tools）菜单**里的「切换深色/浅色模式」
 
 切换的是 Zotero 原生的配色偏好 `browser.theme.toolbar-theme`（0=深色，1=浅色，2=跟随系统），
 不引入任何第三方主题，效果与设置里选择 Light/Dark 完全一致，且**立即生效、无需重启**。
