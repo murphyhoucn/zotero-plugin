@@ -6,7 +6,7 @@
 | Release date | 2026-11-19 |
 | Plugin ID | `theme-toggle@local` |
 | Artifact | [`theme-toggle.xpi`](https://github.com/murphyhoucn/zotero-plugin/releases/download/theme-toggle-v1.1.0/theme-toggle.xpi) |
-| SHA-256 | `1848a730cfb2e13d82fc631cd06561dd9d68788cdf36569fc3572e162a31e088` |
+| SHA-256 | `44cfa3d21031bae9a84e3fa72a1713f36590bcb96a46ddc925c2dd57d61c78a5` |
 | Compatibility | Zotero 8.0 – 10.x (verified on Zotero 10.0.8, Windows 11) |
 | License | AGPL-3.0 |
 
@@ -31,9 +31,14 @@ from 1.0.2.
 
 ## Logo design notes
 
-- Geometry: a 22.2 × 13.2 px capsule on a 24 × 24 grid; a filled sun with eight short
-  rays on the left; a `/` slash in the middle; a filled crescent moon (disc minus an
-  offset circle) tilted 18° on the right.
+- Geometry: a 22.2 × 13.2 capsule on a 24 × 24 grid; sun on the left, `/` slash in
+  the middle, crescent moon on the right.
+- The sun and the moon occupy **equal 6.0 × 6.0 boxes** — neither is larger than the
+  other — and both reuse the glyph shapes already used by the plugin's toolbar icons.
+  Elements are kept compact inside the capsule (≈1 px end padding, ≈2 px gaps around
+  the slash) so the mark does not look crowded.
+- The moon keeps the stock crescent orientation (horns towards the top-right): it is
+  **not mirrored and not rotated**.
 - Palette: sun `#F6A623`, moon `#5B8DEF`, capsule and slash `#7C879E` — three flat
   colours, no gradients, chosen so the mark stays visible on both light and dark
   backgrounds (Zotero's Plugins Manager uses a dark card in dark mode).

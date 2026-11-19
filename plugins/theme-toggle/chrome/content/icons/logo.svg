@@ -1,22 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" role="img" aria-labelledby="title">
   <title id="title">Sun / moon toggle</title>
   <!-- capsule -->
-  <rect x="0.9" y="5.4" width="22.2" height="13.2" rx="6.6" fill="none" stroke="#7C879E" stroke-width="1.4"/>
-  <!-- sun -->
-  <circle cx="6.9" cy="12" r="1.9" fill="#F6A623"/>
-  <g stroke="#F6A623" stroke-width="1.2" stroke-linecap="round">
-    <path d="M6.9 6.75v1.2"/>
-    <path d="M6.9 16.05v1.2"/>
-    <path d="M1.65 12h1.2"/>
-    <path d="M10.95 12h1.2"/>
-    <path d="M3.2 8.3l.85.85"/>
-    <path d="M9.75 14.85l.85.85"/>
-    <path d="M3.2 15.7l.85-.85"/>
-    <path d="M9.75 9.15l.85-.85"/>
+  <rect x="0.9" y="5.4" width="22.2" height="13.2" rx="6.6" fill="none" stroke="#7C879E" stroke-width="1.15"/>
+  <!-- sun: same glyph shape as the toolbar sun icon -->
+  <g transform="translate(5.6 12)">
+    <circle r="1.74" fill="#F6A623"/>
+    <g stroke="#F6A623" stroke-width="0.95" stroke-linecap="round" fill="none">
+      <path d="M0 -2.25V-3"/>
+      <path d="M0 2.25V3"/>
+      <path d="M-2.25 0H-3"/>
+      <path d="M2.25 0H3"/>
+      <path d="M-1.59 -1.59l-.53 -.53"/>
+      <path d="M1.59 1.59l.53 .53"/>
+      <path d="M-1.59 1.59l-.53 .53"/>
+      <path d="M1.59 -1.59l.53 -.53"/>
+    </g>
   </g>
   <!-- slash between sun and moon -->
-  <path d="M11.45 15.6 13.15 8.4" stroke="#7C879E" stroke-width="1.45" stroke-linecap="round"/>
-  <!-- crescent moon -->
-  <path d="M16.83 8.92A3.3 3.3 0 0 1 16.83 15.08A3.3 3.3 0 1 0 16.83 8.92Z"
-        fill="#5B8DEF" transform="rotate(-18 18 12)"/>
+  <path d="M11.3 14.7 12.7 9.3" stroke="#7C879E" stroke-width="1.2" stroke-linecap="round"/>
+  <!-- moon: stock crescent glyph, upright and unmirrored, same box size as the sun -->
+  <g transform="translate(14.4 8) scale(0.3333)">
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" fill="#5B8DEF"/>
+  </g>
 </svg>
